@@ -2,7 +2,6 @@ package dev.padrewin.coldplugin.manager;
 
 import dev.padrewin.coldplugin.ColdPlugin;
 import dev.padrewin.coldplugin.config.CommentedFileConfiguration;
-import dev.padrewin.coldplugin.utils.NMSUtil;
 import dev.padrewin.coldplugin.utils.ColdDevUtils;
 import dev.padrewin.coldplugin.utils.StringPlaceholders;
 import java.io.BufferedReader;
@@ -10,7 +9,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.URL;
-import java.util.concurrent.CompletableFuture;
+
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -95,13 +94,6 @@ public class PluginUpdateManager extends Manager implements Listener {
         try (BufferedReader reader = new BufferedReader(new InputStreamReader(spigot.openStream()))) {
             return reader.readLine();
         }
-    }
-
-    /**
-     * @return the version of the latest update of this plugin, or null if there is none
-     */
-    public String getUpdateVersion() {
-        return this.updateVersion;
     }
 
     /**

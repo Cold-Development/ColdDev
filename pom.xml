@@ -17,19 +17,18 @@
     </properties>
     <distributionManagement>
         <repository>
-            <id>github</id>
+            <id>com.github.padrewin</id>
             <name>com.github.padrewin</name>
-            <url>https://maven.pkg.github.com/padrewin/PlayerPoints</url>
+            <url>https://maven.pkg.github.com/Cold-Development/ColdPlugin</url>
         </repository>
     </distributionManagement>
 
     <build>
-        <defaultGoal>clean package</defaultGoal>
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
-                <version>3.13.0</version>
+                <version>3.8.1</version>
                 <configuration>
                     <source>${java.version}</source>
                     <target>${java.version}</target>
@@ -38,7 +37,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-shade-plugin</artifactId>
-                <version>3.5.3</version>
+                <version>3.2.4</version>
                 <executions>
                     <execution>
                         <phase>package</phase>
@@ -56,6 +55,8 @@
             </resource>
         </resources>
     </build>
+
+
 
     <repositories>
         <repository>
