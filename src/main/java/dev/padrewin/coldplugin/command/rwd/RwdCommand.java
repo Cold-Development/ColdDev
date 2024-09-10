@@ -1,0 +1,70 @@
+package dev.padrewin.coldplugin.command.rwd;
+
+import dev.padrewin.coldplugin.ColdPlugin;
+import dev.padrewin.coldplugin.command.framework.BaseColdCommand;
+import dev.padrewin.coldplugin.command.framework.CommandContext;
+import dev.padrewin.coldplugin.command.framework.CommandInfo;
+import dev.padrewin.coldplugin.command.framework.annotation.ColdExecutable;
+import dev.padrewin.coldplugin.objects.ColdPluginData;
+import dev.padrewin.coldplugin.utils.HexUtils;
+import dev.padrewin.coldplugin.utils.ColdDevUtils;
+import java.util.ArrayList;
+import java.util.List;
+import net.md_5.bungee.api.chat.ClickEvent;
+import net.md_5.bungee.api.chat.ComponentBuilder;
+import net.md_5.bungee.api.chat.ComponentBuilder.FormatRetention;
+import net.md_5.bungee.api.chat.HoverEvent;
+import net.md_5.bungee.api.chat.HoverEvent.Action;
+import net.md_5.bungee.api.chat.TextComponent;
+import net.md_5.bungee.api.chat.hover.content.Text;
+
+@SuppressWarnings("deprecation")
+public class RwdCommand extends BaseColdCommand {
+
+    public RwdCommand(ColdPlugin coldPlugin) {
+        super(coldPlugin);
+    }
+
+    @Override
+    protected CommandInfo createCommandInfo() {
+        return CommandInfo.builder("rwd")
+                .permission("colddev.rwd")
+                .build();
+    }
+
+    @ColdExecutable
+    public void execute(CommandContext context) {
+        List<ColdPluginData> pluginData = this.coldPlugin.getLoadedColdPluginsData();
+
+        ComponentBuilder builder = new ComponentBuilder();
+        builder.append(TextComponent.fromLegacyText(HexUtils.colorify(
+                ColdDevUtils.PREFIX + "&ePlugins installed using " + ColdDevUtils.GRADIENT + "ColdDev &eby " + ColdDevUtils.GRADIENT + "Cold Development&e. Hover over to view info: ")));
+
+        boolean first = true;
+        for (ColdPluginData data : pluginData) {
+            if (!first)
+                builder.append(TextComponent.fromLegacyText(HexUtils.colorify("&e, ")), FormatRetention.NONE);
+            first = false;
+
+            String updateVersion = data.updateVersion();
+            String website = data.website();
+
+            List<Text> content = new ArrayList<>();
+            content.add(new Text(TextComponent.fromLegacyText(HexUtils.colorify("&eVersion: &b" + data.version()))));
+            content.add(new Text(TextComponent.fromLegacyText(HexUtils.colorify("\n&eColdDev Version: &b" + data.coldPluginVersion()))));
+            if (updateVersion != null)
+                content.add(new Text(TextComponent.fromLegacyText(HexUtils.colorify("\n&eAn update (&b" + updateVersion + "&e) is available! Click to open the Spigot page."))));
+
+            TextComponent pluginName = new TextComponent(TextComponent.fromLegacyText(HexUtils.colorify(ColdDevUtils.GRADIENT + data.name())));
+            pluginName.setHoverEvent(new HoverEvent(Action.SHOW_TEXT, content.toArray(new Text[0])));
+
+            if (website != null)
+                pluginName.setClickEvent(new ClickEvent(ClickEvent.Action.OPEN_URL, data.website()));
+
+            builder.append(pluginName);
+        }
+
+        context.getSender().spigot().sendMessage(builder.create());
+    }
+
+}
