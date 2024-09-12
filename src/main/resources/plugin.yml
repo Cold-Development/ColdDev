@@ -1,5 +1,5 @@
 name: ColdPlugin
-version: '1.0'
+version: '@version@'
 main: dev.padrewin.coldplugin.ColdPlugin
 api-version: '1.20'
 authors: [ padrewin ]

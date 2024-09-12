@@ -12,6 +12,18 @@ import dev.padrewin.coldplugin.manager.PluginUpdateManager;
 import dev.padrewin.coldplugin.objects.ColdPluginData;
 import dev.padrewin.coldplugin.scheduler.ColdScheduler;
 import dev.padrewin.coldplugin.utils.ColdDevUtils;
+import java.io.File;
+import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Deque;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedDeque;
+import java.util.concurrent.atomic.AtomicBoolean;
+import org.bstats.bukkit.Metrics;
 import org.bukkit.Bukkit;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.RegisteredServiceProvider;
@@ -20,28 +32,52 @@ import org.bukkit.plugin.ServicesManager;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.jetbrains.annotations.NotNull;
 
-import java.io.File;
-import java.lang.reflect.Method;
-import java.lang.reflect.Modifier;
-import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentLinkedDeque;
-import java.util.concurrent.atomic.AtomicBoolean;
+public abstract class ColdPlugin extends JavaPlugin {
 
-public class ColdPlugin extends JavaPlugin {
+    public ColdPlugin() {
+        // Constructor fără argumente pentru a permite încărcarea pluginului de către Bukkit
+        this(-1, -1, null, null, null);
+    }
 
+    /**
+     * The ColdPlugin identifier
+     */
     public static final String COLDDEV_VERSION = "@version@";
+
+    /**
+     * The plugin ID on Spigot
+     */
     private final int spigotId;
+
+    /**
+     * The plugin ID on bStats
+     */
+    private final int bStatsId;
+
+    /**
+     * The classes that extend the abstract managers
+     */
     private final Class<? extends AbstractDataManager> dataManagerClass;
     private final Class<? extends AbstractLocaleManager> localeManagerClass;
     private final Class<? extends AbstractCommandManager> commandManagerClass;
+
+    /**
+     * The plugin managers
+     */
     private final Map<Class<? extends Manager>, Manager> managers;
     private final Deque<Class<? extends Manager>> managerInitializationStack;
+
+    /**
+     * The main config.yml
+     */
     private ColdConfig coldConfig;
+
     private boolean firstInitialization = true;
     private boolean firstToRegister = false;
 
-    public ColdPlugin(int spigotId, int bStatsId, Class<? extends AbstractDataManager> dataManagerClass,
+    public ColdPlugin(int spigotId,
+                      int bStatsId,
+                      Class<? extends AbstractDataManager> dataManagerClass,
                       Class<? extends AbstractLocaleManager> localeManagerClass,
                       Class<? extends AbstractCommandManager> commandManagerClass) {
         if (dataManagerClass != null && Modifier.isAbstract(dataManagerClass.getModifiers()))
@@ -52,21 +88,21 @@ public class ColdPlugin extends JavaPlugin {
             throw new IllegalArgumentException("commandManagerClass cannot be abstract");
 
         this.spigotId = spigotId;
+        this.bStatsId = bStatsId;
         this.dataManagerClass = dataManagerClass;
         this.localeManagerClass = localeManagerClass;
         this.commandManagerClass = commandManagerClass;
+
         this.managers = new ConcurrentHashMap<>();
         this.managerInitializationStack = new ConcurrentLinkedDeque<>();
     }
 
-    // Constructor fără parametri
-    public ColdPlugin() {
-        this(-1, -1, null, null, null);
-    }
-
     @Override
     public void onLoad() {
+        // Log that we are loading
         this.getLogger().info("Initializing using ColdDev v" + COLDDEV_VERSION);
+
+        // Log severe if the library is not relocated
         if (!ColdDevUtils.isRelocated()) {
             ColdDevUtils.getLogger().severe("=====================================================");
             ColdDevUtils.getLogger().severe("DEVELOPER ERROR!!! ColdDev has not been relocated!");
@@ -76,58 +112,106 @@ public class ColdPlugin extends JavaPlugin {
 
     @Override
     public void onEnable() {
+        // bStats Metrics
+        if (this.bStatsId != -1) {
+            Metrics metrics = new Metrics(this, this.bStatsId);
+            this.addCustomMetricsCharts(metrics);
+        }
 
+        // Inject the plugin class into the spigot services manager
         this.injectService();
+
+        // Load the main config file
         this.getColdConfig();
+
+        // Load managers
         this.reload();
+
+        // Run the plugin's enable code
         this.enable();
     }
 
     @Override
     public void onDisable() {
+        // Run the plugin's disable code
         this.disable();
+
+        // Shut down the managers
         this.disableManagers();
     }
 
-    // Metodă definită pentru activarea pluginului
-    protected void enable() {
-        this.getLogger().info("Plugin enabled successfully!");
-    }
+    /**
+     * Called during {@link JavaPlugin#onEnable} after managers have been enabled
+     */
+    protected abstract void enable();
 
-    // Metodă definită pentru dezactivarea pluginului
-    protected void disable() {
-        this.getLogger().info("Plugin disabled successfully!");
-    }
+    /**
+     * Called during {@link JavaPlugin#onDisable} before managers have been disabled
+     */
+    protected abstract void disable();
 
+    /**
+     * @return the order in which Managers should be loaded, excluding
+     */
     @NotNull
-    protected List<Class<? extends Manager>> getManagerLoadPriority() {
-        return Collections.emptyList();
-    }
+    protected abstract List<Class<? extends Manager>> getManagerLoadPriority();
 
+    /**
+     * Checks if the database is local only.
+     * Returning true will prevent the database settings from appearing in the config.yml.
+     *
+     * @return true if the database is local only or doesn't exist, false otherwise
+     */
     public boolean isLocalDatabaseOnly() {
         return false;
     }
 
+    /**
+     * @return the settings that should be written to the config.yml
+     */
     @NotNull
     protected List<ColdSetting<?>> getColdConfigSettings() {
         return Collections.emptyList();
     }
 
+    /**
+     * @return the header to place at the top of the config.yml
+     */
     @NotNull
     protected String[] getColdConfigHeader() {
         return new String[0];
     }
 
+    /**
+     * Registers any custom bStats Metrics charts for the plugin
+     *
+     * @param metrics The Metrics instance
+     */
+    protected void addCustomMetricsCharts(Metrics metrics) {
+        // Must be overridden for any functionality.
+    }
+
+    /**
+     * Reloads the plugin's managers
+     */
     public void reload() {
         this.disableManagers();
+
         if (this.coldConfig != null)
             this.coldConfig.reload();
 
         if (this.firstInitialization) {
             List<Class<? extends Manager>> managerLoadPriority = new ArrayList<>();
-            if (this.hasDataManager()) managerLoadPriority.add(this.dataManagerClass);
-            if (this.hasLocaleManager()) managerLoadPriority.add(this.localeManagerClass);
-            if (this.hasCommandManager()) managerLoadPriority.add(this.commandManagerClass);
+
+            if (this.hasDataManager())
+                managerLoadPriority.add(this.dataManagerClass);
+
+            if (this.hasLocaleManager())
+                managerLoadPriority.add(this.localeManagerClass);
+
+            if (this.hasCommandManager())
+                managerLoadPriority.add(this.commandManagerClass);
+
             managerLoadPriority.addAll(this.getManagerLoadPriority());
 
             if (this.spigotId != -1)
@@ -150,7 +234,10 @@ public class ColdPlugin extends JavaPlugin {
         this.firstInitialization = false;
     }
 
-    private void disableManagers() {
+    /**
+     * Runs {@link Manager#disable} on all managers in the reverse order that they were loaded.
+     */
+    void disableManagers() {
         for (Class<? extends Manager> managerClass : this.managerInitializationStack) {
             Manager manager = this.managers.get(managerClass);
             try {
@@ -161,9 +248,19 @@ public class ColdPlugin extends JavaPlugin {
         }
     }
 
+    /**
+     * Gets a manager instance and loads it if this is the first call to get it.
+     *
+     * @param managerClass The class of the manager to get
+     * @param <T> extends Manager
+     * @return A new or existing instance of the given manager class
+     * @throws ManagerLoadException if the manager fails to load
+     * @throws ManagerInitializationException if the manager fails to initialize
+     */
     @SuppressWarnings("unchecked")
     @NotNull
     public <T extends Manager> T getManager(Class<T> managerClass) {
+        // Get the actual class if the abstract one is requested
         Class<? extends Manager> lookupClass = this.remapAbstractManagerClasses(managerClass);
 
         AtomicBoolean initialized = new AtomicBoolean();
@@ -204,16 +301,25 @@ public class ColdPlugin extends JavaPlugin {
         return lookupClass;
     }
 
+    /**
+     * @return the scheduler for this plugin
+     */
     public final ColdScheduler getScheduler() {
         return ColdScheduler.getInstance(this);
     }
 
+    /**
+     * @return the main config for this plugin
+     */
     public final ColdConfig getColdConfig() {
         if (this.coldConfig == null) {
             List<ColdSetting<?>> settings = new ArrayList<>();
+
             if (this.hasLocaleManager())
                 settings.addAll(AbstractLocaleManager.SettingKey.getKeys());
+
             settings.addAll(this.getColdConfigSettings());
+
             if (this.hasDataManager() && !this.isLocalDatabaseOnly())
                 settings.addAll(AbstractDataManager.SettingKey.getKeys());
 
@@ -227,8 +333,25 @@ public class ColdPlugin extends JavaPlugin {
         return this.coldConfig;
     }
 
+    /**
+     * @return the ID of the plugin on Spigot, or -1 if not tracked
+     */
     public final int getSpigotId() {
         return this.spigotId;
+    }
+
+    /**
+     * @return the ID of this plugin on bStats, or -1 if not tracked
+     */
+    public final int getBStatsId() {
+        return this.bStatsId;
+    }
+
+    /**
+     * @return true if this plugin is the first to register, false otherwise
+     */
+    public final boolean isFirstToRegister() {
+        return this.firstToRegister;
     }
 
     private void injectService() {
@@ -236,16 +359,22 @@ public class ColdPlugin extends JavaPlugin {
             this.firstToRegister = true;
             new ColdCommandWrapper("colddev", this.getColdDevDataFolder(), this, new RwdCommand(this)).register();
         }
+
+        // Register our service
         Bukkit.getServicesManager().register(ColdPlugin.class, this, this, ServicePriority.Normal);
     }
 
+    /**
+     * @return data of all ColdPlugin installed on the server
+     */
     @NotNull
     public final List<ColdPluginData> getLoadedColdPluginsData() {
         List<ColdPluginData> data = new ArrayList<>();
+
         ServicesManager servicesManager = Bukkit.getServicesManager();
         for (Class<?> service : servicesManager.getKnownServices()) {
             try {
-                String colddevVersion = (String) service.getField("COLDDEV_VERSION").get(null);
+                String coldDevVersion = (String) service.getField("COLDDEV_VERSION").get(null);
                 Method updateVersionMethod = service.getMethod("getUpdateVersion");
 
                 for (RegisteredServiceProvider<?> provider : servicesManager.getRegistrations(service)) {
@@ -254,21 +383,31 @@ public class ColdPlugin extends JavaPlugin {
                     String pluginVersion = plugin.getDescription().getVersion();
                     String website = plugin.getDescription().getWebsite();
                     String updateVersion = (String) updateVersionMethod.invoke(plugin);
-                    data.add(new ColdPluginData(pluginName, pluginVersion, updateVersion, website, colddevVersion));
+                    data.add(new ColdPluginData(pluginName, pluginVersion, updateVersion, website, coldDevVersion));
                 }
-            } catch (ReflectiveOperationException | ClassCastException ignored) {
-            }
+            } catch (ReflectiveOperationException | ClassCastException ignored) { }
         }
 
         return data;
     }
 
+    /**
+     * @return the data folder for ColdDev
+     */
     @NotNull
     public final File getColdDevDataFolder() {
         File configDir = new File(this.getDataFolder().getParentFile(), "ColdDev");
         if (!configDir.exists())
             configDir.mkdirs();
         return configDir;
+    }
+
+    /**
+     * @return the version of the latest update of this plugin, or null if there is none
+     */
+    @NotNull
+    public final String getUpdateVersion() {
+        return this.getManager(PluginUpdateManager.class).getUpdateVersion();
     }
 
     public final boolean hasDataManager() {
@@ -283,21 +422,37 @@ public class ColdPlugin extends JavaPlugin {
         return this.commandManagerClass != null;
     }
 
+    /**
+     * An exception thrown when a Manager fails during {@link Manager#reload()}
+     */
     private static class ManagerLoadException extends RuntimeException {
+
         public ManagerLoadException(Class<? extends Manager> managerClass, Throwable cause) {
             super("Failed to load " + managerClass.getSimpleName(), cause);
         }
+
     }
 
+    /**
+     * An exception thrown when a Manager fails during {@link Manager#disable()}
+     */
     private static class ManagerUnloadException extends RuntimeException {
+
         public ManagerUnloadException(Class<? extends Manager> managerClass, Throwable cause) {
             super("Failed to unload " + managerClass.getSimpleName(), cause);
         }
+
     }
 
+    /**
+     * An exception thrown when a Manager can't be initialized
+     */
     private static class ManagerInitializationException extends RuntimeException {
+
         public ManagerInitializationException(Class<? extends Manager> managerClass, Throwable cause) {
             super("Failed to initialize " + managerClass.getSimpleName(), cause);
         }
+
     }
+
 }

@@ -47,4 +47,11 @@ public interface DatabaseConnector {
         void accept(Connection connection) throws SQLException;
     }
 
+    /**
+     * Returns the path or URL of the database connection.
+     *
+     * @return the database path or URL
+     */
+    String getDatabasePath();
+
 }

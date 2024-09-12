@@ -3,6 +3,7 @@ package dev.padrewin.coldplugin.scheduler;
 import dev.padrewin.coldplugin.ColdPlugin;
 import dev.padrewin.coldplugin.scheduler.task.ScheduledTask;
 import dev.padrewin.coldplugin.scheduler.wrapper.BukkitSchedulerWrapper;
+import dev.padrewin.coldplugin.scheduler.wrapper.FoliaSchedulerWrapper;
 import dev.padrewin.coldplugin.scheduler.wrapper.SchedulerWrapper;
 import dev.padrewin.coldplugin.utils.NMSUtil;
 import java.util.concurrent.TimeUnit;
@@ -17,17 +18,19 @@ public class ColdScheduler implements SchedulerWrapper {
     private final AtomicInteger runningTasks;
     private final SchedulerWrapper scheduler;
 
-    private ColdScheduler(ColdPlugin ColdPlugin) {
+    private ColdScheduler(ColdPlugin coldPlugin) {
         if (instance != null)
             throw new IllegalStateException("An instance of ColdScheduler already exists");
 
         instance = this;
         this.runningTasks = new AtomicInteger();
 
-        // Folosim doar BukkitSchedulerWrapper, fără verificare pentru Folia
-        this.scheduler = new BukkitSchedulerWrapper(ColdPlugin);
+        if (NMSUtil.isFolia()) {
+            this.scheduler = new FoliaSchedulerWrapper(coldPlugin);
+        } else {
+            this.scheduler = new BukkitSchedulerWrapper(coldPlugin);
+        }
     }
-
 
     @Override
     public boolean isEntityThread(Entity entity) {
@@ -159,9 +162,9 @@ public class ColdScheduler implements SchedulerWrapper {
         };
     }
 
-    public static ColdScheduler getInstance(ColdPlugin ColdPlugin) {
+    public static ColdScheduler getInstance(ColdPlugin coldPlugin) {
         if (instance == null)
-            instance = new ColdScheduler(ColdPlugin);
+            instance = new ColdScheduler(coldPlugin);
         return instance;
     }
 

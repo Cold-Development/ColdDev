@@ -26,11 +26,9 @@ public class SQLiteConnector implements DatabaseConnector {
         this.lock = new Object();
 
         try {
-            Class.forName("org.sqlite.JDBC"); // Make sure the driver is actually loaded
+            Class.forName("org.sqlite.JDBC"); // Load the driver
 
-            // We often find that the /var/tmp directory is set to noexec which breaks our plugins.
-            // This moves the temp directory to somewhere we know will absolutely have exec permissions.
-            // If this gets overridden by another plugin or something else, that's also fine.
+            // Ensure the tmp directory is set
             File tmpdir = new File(this.coldPlugin.getColdDevDataFolder(), "tmp");
             if (!tmpdir.exists())
                 tmpdir.mkdirs();
@@ -76,7 +74,8 @@ public class SQLiteConnector implements DatabaseConnector {
 
                 try {
                     this.connection.rollback();
-                } catch (SQLException ignored) { }
+                } catch (SQLException ignored) {
+                }
             }
         } catch (Exception ex) {
             this.coldPlugin.getLogger().severe("An error occurred executing an SQLite query: " + ex.getMessage());
@@ -143,5 +142,8 @@ public class SQLiteConnector implements DatabaseConnector {
         }, false);
     }
 
+    @Override
+    public String getDatabasePath() {
+        return this.connectionString;  // Use the connectionString directly
+    }
 }
-

@@ -10,6 +10,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
+
+import dev.padrewin.coldplugin.command.framework.annotation.ColdExecutable;
 import org.bukkit.command.CommandException;
 
 /**

@@ -10,12 +10,19 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class MySQLConnector implements DatabaseConnector {
 
     private final ColdPlugin coldPlugin;
+    private final String hostname;
+    private final int port;
+    private final String database;
     private HikariDataSource hikari;
     private final AtomicInteger openConnections;
     private final Object lock;
 
+
     public MySQLConnector(ColdPlugin coldPlugin, String hostname, int port, String database, String username, String password, boolean useSSL, int poolSize) {
         this.coldPlugin = coldPlugin;
+        this.hostname = hostname;
+        this.port = port;
+        this.database = database;
         this.openConnections = new AtomicInteger();
         this.lock = new Object();
 
@@ -25,25 +32,28 @@ public class MySQLConnector implements DatabaseConnector {
         config.setPassword(password);
         config.setMaximumPoolSize(poolSize);
 
-        try { // Try to use the new driver
+        try {
             Class.forName("com.mysql.cj.jdbc.Driver");
         } catch (ClassNotFoundException e1) {
-            try { // Otherwise fallback to the old one or just ignore if it still can't be found
+            try {
                 Class.forName("com.mysql.jdbc.Driver");
-            } catch (ClassNotFoundException ignored) { }
+            } catch (ClassNotFoundException ignored) {
+            }
         }
 
         try {
             this.hikari = new HikariDataSource(config);
         } catch (Exception ex) {
-            this.coldPlugin.getLogger().severe("Failed to connect to the MySQL server. Are your credentials correct?");
+            this.coldPlugin.getLogger().severe("Failed to connect to the MySQL server. Please check your credentials and connection settings.");
             ex.printStackTrace();
         }
     }
 
     @Override
     public void closeConnection() {
-        this.hikari.close();
+        if (this.hikari != null && !this.hikari.isClosed()) {
+            this.hikari.close();
+        }
     }
 
     @Override
@@ -57,8 +67,9 @@ public class MySQLConnector implements DatabaseConnector {
         } finally {
             int open = this.openConnections.decrementAndGet();
             synchronized (this.lock) {
-                if (open == 0)
+                if (open == 0) {
                     this.lock.notify();
+                }
             }
         }
     }
@@ -80,7 +91,11 @@ public class MySQLConnector implements DatabaseConnector {
 
     @Override
     public void cleanup() {
-
+        // Optional: Add any MySQL-specific cleanup logic here
     }
 
+    @Override
+    public String getDatabasePath() {
+        return "jdbc:mysql://" + hostname + ":" + port + "/" + database;
+    }
 }
