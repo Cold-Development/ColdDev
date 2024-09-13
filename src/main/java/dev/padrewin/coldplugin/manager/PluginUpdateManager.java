@@ -16,8 +16,14 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerJoinEvent;
+import org.bukkit.scheduler.BukkitRunnable;
 
 public class PluginUpdateManager extends Manager implements Listener {
+
+    private static final String ANSI_RESET = "\u001B[0m";
+    private static final String ANSI_RED = "\u001B[31m";
+    private static final String ANSI_BOLD = "\u001B[1m";
+    private static final String ANSI_PURPLE_CHINESE = "\u001B[38;5;93m";
 
     private static final String[] SNAPSHOT_HEADER = {
             "================================================",
@@ -32,21 +38,21 @@ public class PluginUpdateManager extends Manager implements Listener {
 
     public PluginUpdateManager(ColdPlugin coldPlugin) {
         super(coldPlugin);
-
         Bukkit.getPluginManager().registerEvents(this, this.coldPlugin);
     }
 
     @Override
     public void reload() {
-        if (this.coldPlugin.getSpigotId() == -1)
+        if (this.coldPlugin.getSpigotId() == -1 || this.updateVersion != null)
             return;
 
         File configFile = new File(this.coldPlugin.getColdDevDataFolder(), "config.yml");
 
         String currentVersion = this.coldPlugin.getDescription().getVersion();
         if (currentVersion.contains("-SNAPSHOT") && !this.displayedSnapshotHeader) {
-            for (String line : SNAPSHOT_HEADER)
+            for (String line : SNAPSHOT_HEADER) {
                 this.coldPlugin.getLogger().warning(line);
+            }
             this.displayedSnapshotHeader = true;
             return;
         }
@@ -66,13 +72,26 @@ public class PluginUpdateManager extends Manager implements Listener {
         this.coldPlugin.getScheduler().runTaskAsync(() -> this.checkForUpdate(currentVersion));
     }
 
+    private boolean updateMessageShown = false;
+
     private void checkForUpdate(String currentVersion) {
         try {
             String latestVersion = this.getLatestVersion();
 
             if (ColdDevUtils.isUpdateAvailable(latestVersion, currentVersion)) {
                 this.updateVersion = latestVersion;
-                ColdDevUtils.getLogger().info("An update for " + this.coldPlugin.getName() + " (v" + this.updateVersion + ") is available! You are running v" + currentVersion + ".");
+
+                if (updateMessageShown) {
+                    return;
+                }
+
+                String message = ANSI_RED + "An update for " + ANSI_PURPLE_CHINESE + this.coldPlugin.getName() + ANSI_RED + ANSI_BOLD
+                        + " (" + this.updateVersion + ")" + ANSI_RESET + ANSI_RED + " is available! You are running "
+                        + ANSI_RED + ANSI_BOLD + "v" + currentVersion + "." + ANSI_RESET;
+
+                ColdDevUtils.getLogger().info(message);
+
+                updateMessageShown = true;
             }
         } catch (Exception e) {
             ColdDevUtils.getLogger().warning("An error occurred checking for an update. There is either no established internet connection or the Spigot API is down.");
@@ -112,17 +131,28 @@ public class PluginUpdateManager extends Manager implements Listener {
     @EventHandler
     public void onPlayerJoin(PlayerJoinEvent event) {
         Player player = event.getPlayer();
-        if (this.updateVersion == null || !player.isOp())
+
+        if (this.updateVersion == null) {
             return;
+        }
 
-        String website = this.coldPlugin.getDescription().getWebsite();
-        String updateMessage = "&eAn update for " + ColdDevUtils.GRADIENT +
-                this.coldPlugin.getName() + " &e(&b%new%&e) is available! You are running &b%current%&e." +
-                (website != null ? " " + website : "");
+        if (!player.isOp()) {
+            return;
+        }
 
-        StringPlaceholders placeholders = StringPlaceholders.of("new", this.updateVersion, "current", this.coldPlugin.getDescription().getVersion());
+        // Creează o sarcină cu un delay de 5 secunde
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                String website = coldPlugin.getDescription().getWebsite();
+                String updateMessage = "&cAn update for " + ColdDevUtils.GRADIENT +
+                        coldPlugin.getName() + " &c(&4%new%&c) is available! You are running &4%current%&c." +
+                        (website != null ? " " + website : "");
 
-        ColdDevUtils.sendMessage(player, updateMessage, placeholders);
+                StringPlaceholders placeholders = StringPlaceholders.of("new", updateVersion, "current", coldPlugin.getDescription().getVersion());
+                ColdDevUtils.sendMessage(player, updateMessage, placeholders);
+            }
+        }.runTaskLater(this.coldPlugin, 100L); // 100 ticks = 5 secunde
     }
 
 }

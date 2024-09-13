@@ -25,6 +25,12 @@ import org.jetbrains.annotations.NotNull;
 
 public abstract class AbstractDataManager extends Manager {
 
+    public static final String ANSI_GREEN = "\u001B[32m";
+    public static final String ANSI_RESET = "\u001B[0m";
+    public static final String ANSI_BOLD = "\u001B[1m";
+    public static final String ANSI_ORANGE = "\u001B[38;5;214m";
+    public static final String ANSI_LIGHT_BLUE = "\u001B[38;5;153m";
+
     public static final class SettingKey {
         private static final List<ColdSetting<?>> KEYS = new ArrayList<>();
 
@@ -70,11 +76,11 @@ public abstract class AbstractDataManager extends Manager {
                 int poolSize = coldConfig.get(SettingKey.MYSQL_SETTINGS_POOL_SIZE);
 
                 this.databaseConnector = new MySQLConnector(this.coldPlugin, hostname, port, database, username, password, useSSL, poolSize);
-                this.coldPlugin.getLogger().info("Data handler connected using MySQL.");
+                this.coldPlugin.getLogger().info(ANSI_ORANGE + "Database connected using MySQL. " + ANSI_BOLD + ANSI_GREEN + "✓" + ANSI_RESET);
             } else {
                 this.databaseConnector = new SQLiteConnector(this.coldPlugin);
                 this.databaseConnector.cleanup();
-                this.coldPlugin.getLogger().info("Data handler connected using SQLite.");
+                this.coldPlugin.getLogger().info(ANSI_LIGHT_BLUE + "Database connected using SQLite. " + ANSI_BOLD + ANSI_GREEN + "✓" + ANSI_RESET);
             }
 
             this.applyMigrations();

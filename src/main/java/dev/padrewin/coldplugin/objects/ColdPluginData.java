@@ -6,18 +6,18 @@ public class ColdPluginData {
     public final String version;
     public final String updateVersion;
     public final String website;
-    public final String coldPluginVersion;
+    public final String coldDevVersion;
 
     public ColdPluginData(String name,
                           String version,
                           String updateVersion,
                           String website,
-                          String coldPluginVersion) {
+                          String coldDevVersion) {
         this.name = name;
         this.version = version;
         this.updateVersion = updateVersion;
         this.website = website;
-        this.coldPluginVersion = coldPluginVersion;
+        this.coldDevVersion = coldDevVersion;
     }
 
     public String name() {
@@ -36,8 +36,8 @@ public class ColdPluginData {
         return this.website;
     }
 
-    public String coldPluginVersion() {
-        return this.coldPluginVersion;
+    public String coldDevVersion() {
+        return this.coldDevVersion;
     }
 
 }

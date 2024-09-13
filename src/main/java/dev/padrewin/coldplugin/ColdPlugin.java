@@ -35,7 +35,6 @@ import org.jetbrains.annotations.NotNull;
 public abstract class ColdPlugin extends JavaPlugin {
 
     public ColdPlugin() {
-        // Constructor fără argumente pentru a permite încărcarea pluginului de către Bukkit
         this(-1, -1, null, null, null);
     }
 

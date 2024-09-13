@@ -38,22 +38,22 @@ public class RwdCommand extends BaseColdCommand {
 
         ComponentBuilder builder = new ComponentBuilder();
         builder.append(TextComponent.fromLegacyText(HexUtils.colorify(
-                ColdDevUtils.PREFIX + "&ePlugins installed using " + ColdDevUtils.GRADIENT + "ColdDev &eby " + ColdDevUtils.GRADIENT + "Cold Development&e. Hover over to view info: ")));
+                ColdDevUtils.PREFIX + "&7Plugins installed using " + ColdDevUtils.GRADIENT + "ColdDev &7by " + ColdDevUtils.GRADIENT + "Cold Development&e. Hover over to view info: ")));
 
         boolean first = true;
         for (ColdPluginData data : pluginData) {
             if (!first)
-                builder.append(TextComponent.fromLegacyText(HexUtils.colorify("&e, ")), FormatRetention.NONE);
+                builder.append(TextComponent.fromLegacyText(HexUtils.colorify("&7, ")), FormatRetention.NONE);
             first = false;
 
             String updateVersion = data.updateVersion();
             String website = data.website();
 
             List<Text> content = new ArrayList<>();
-            content.add(new Text(TextComponent.fromLegacyText(HexUtils.colorify("&eVersion: &b" + data.version()))));
-            content.add(new Text(TextComponent.fromLegacyText(HexUtils.colorify("\n&eColdDev Version: &b" + data.coldPluginVersion()))));
+            content.add(new Text(TextComponent.fromLegacyText(HexUtils.colorify("&cVersion: &4" + data.version()))));
+            content.add(new Text(TextComponent.fromLegacyText(HexUtils.colorify("\n&cColdDev Version: &4" + data.coldDevVersion()))));
             if (updateVersion != null)
-                content.add(new Text(TextComponent.fromLegacyText(HexUtils.colorify("\n&eAn update (&b" + updateVersion + "&e) is available! Click to open the Spigot page."))));
+                content.add(new Text(TextComponent.fromLegacyText(HexUtils.colorify("\n&cAn update (&4" + updateVersion + "&c) is available! Click to open the Spigot page."))));
 
             TextComponent pluginName = new TextComponent(TextComponent.fromLegacyText(HexUtils.colorify(ColdDevUtils.GRADIENT + data.name())));
             pluginName.setHoverEvent(new HoverEvent(Action.SHOW_TEXT, content.toArray(new Text[0])));
