@@ -87,7 +87,7 @@ public class PluginUpdateManager extends Manager implements Listener {
 
                 String message = ANSI_RED + "An update for " + ANSI_PURPLE_CHINESE + this.coldPlugin.getName() + ANSI_RED + ANSI_BOLD
                         + " (" + this.updateVersion + ")" + ANSI_RESET + ANSI_RED + " is available! You are running "
-                        + ANSI_RED + ANSI_BOLD + "v" + currentVersion + "." + ANSI_RESET;
+                        + ANSI_BOLD + ANSI_RED + "v" + currentVersion + "." + ANSI_RESET;
 
                 ColdDevUtils.getLogger().info(message);
 
@@ -165,7 +165,7 @@ public class PluginUpdateManager extends Manager implements Listener {
             public void run() {
                 String website = coldPlugin.getDescription().getWebsite();
                 String updateMessage = "&cAn update for " + ColdDevUtils.GRADIENT +
-                        coldPlugin.getName() + " &c(&4%new%&c) is available! You are running &4%current%&c." +
+                        coldPlugin.getName() + " &c(&4%new%&c) is available! You are running &4v%current%&c." +
                         (website != null ? " " + website : "");
 
                 StringPlaceholders placeholders = StringPlaceholders.of("new", updateVersion, "current", coldPlugin.getDescription().getVersion());
