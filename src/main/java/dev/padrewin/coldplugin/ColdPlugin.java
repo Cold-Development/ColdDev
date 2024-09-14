@@ -35,7 +35,7 @@ import org.jetbrains.annotations.NotNull;
 public abstract class ColdPlugin extends JavaPlugin {
 
     public ColdPlugin() {
-        this(-1, -1, null, null, null);
+        this("defaultOwner", "defaultRepo", -1, null, null, null);
     }
 
     /**
@@ -44,14 +44,15 @@ public abstract class ColdPlugin extends JavaPlugin {
     public static final String COLDDEV_VERSION = "@version@";
 
     /**
-     * The plugin ID on Spigot
-     */
-    private final int spigotId;
-
-    /**
      * The plugin ID on bStats
      */
     private final int bStatsId;
+
+    /**
+     * The GitHub owner and repository
+     */
+    private final String githubOwner;
+    private final String githubRepo;
 
     /**
      * The classes that extend the abstract managers
@@ -74,19 +75,14 @@ public abstract class ColdPlugin extends JavaPlugin {
     private boolean firstInitialization = true;
     private boolean firstToRegister = false;
 
-    public ColdPlugin(int spigotId,
-                      int bStatsId,
+    public ColdPlugin(String githubOwner, String githubRepo, int bStatsId,
                       Class<? extends AbstractDataManager> dataManagerClass,
                       Class<? extends AbstractLocaleManager> localeManagerClass,
                       Class<? extends AbstractCommandManager> commandManagerClass) {
-        if (dataManagerClass != null && Modifier.isAbstract(dataManagerClass.getModifiers()))
-            throw new IllegalArgumentException("dataManagerClass cannot be abstract");
-        if (localeManagerClass != null && Modifier.isAbstract(localeManagerClass.getModifiers()))
-            throw new IllegalArgumentException("localeManagerClass cannot be abstract");
-        if (commandManagerClass != null && Modifier.isAbstract(commandManagerClass.getModifiers()))
-            throw new IllegalArgumentException("commandManagerClass cannot be abstract");
+        super();
 
-        this.spigotId = spigotId;
+        this.githubOwner = githubOwner;
+        this.githubRepo = githubRepo;
         this.bStatsId = bStatsId;
         this.dataManagerClass = dataManagerClass;
         this.localeManagerClass = localeManagerClass;
@@ -94,6 +90,14 @@ public abstract class ColdPlugin extends JavaPlugin {
 
         this.managers = new ConcurrentHashMap<>();
         this.managerInitializationStack = new ConcurrentLinkedDeque<>();
+    }
+
+    public String getGithubOwner() {
+        return this.githubOwner;
+    }
+
+    public String getGithubRepo() {
+        return this.githubRepo;
     }
 
     @Override
@@ -213,7 +217,7 @@ public abstract class ColdPlugin extends JavaPlugin {
 
             managerLoadPriority.addAll(this.getManagerLoadPriority());
 
-            if (this.spigotId != -1)
+            if (this.githubOwner != null && this.githubRepo != null)
                 managerLoadPriority.add(PluginUpdateManager.class);
 
             managerLoadPriority.forEach(this::getManager);
@@ -335,9 +339,9 @@ public abstract class ColdPlugin extends JavaPlugin {
     /**
      * @return the ID of the plugin on Spigot, or -1 if not tracked
      */
-    public final int getSpigotId() {
-        return this.spigotId;
-    }
+//    public final int getSpigotId() {
+//        return this.spigotId;
+//    }
 
     /**
      * @return the ID of this plugin on bStats, or -1 if not tracked

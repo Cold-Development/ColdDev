@@ -43,7 +43,7 @@ public class PluginUpdateManager extends Manager implements Listener {
 
     @Override
     public void reload() {
-        if (this.coldPlugin.getSpigotId() == -1 || this.updateVersion != null)
+        if (this.coldPlugin.getGithubOwner() == null || this.coldPlugin.getGithubRepo() == null || this.updateVersion != null)
             return;
 
         File configFile = new File(this.coldPlugin.getColdDevDataFolder(), "config.yml");
@@ -94,7 +94,7 @@ public class PluginUpdateManager extends Manager implements Listener {
                 updateMessageShown = true;
             }
         } catch (Exception e) {
-            ColdDevUtils.getLogger().warning("An error occurred checking for an update. There is either no established internet connection or the Spigot API is down.");
+            ColdDevUtils.getLogger().warning("An error occurred checking for an update. There is either no established internet connection or the GitHub API is down.");
         }
     }
 
@@ -110,9 +110,28 @@ public class PluginUpdateManager extends Manager implements Listener {
      * @throws IOException if a network error occurs
      */
     private String getLatestVersion() throws IOException {
-        URL spigot = new URL("https://api.spigotmc.org/legacy/update.php?resource=" + this.coldPlugin.getSpigotId());
-        try (BufferedReader reader = new BufferedReader(new InputStreamReader(spigot.openStream()))) {
-            return reader.readLine();
+        String owner = this.coldPlugin.getGithubOwner();
+        String repo = this.coldPlugin.getGithubRepo();
+
+        URL github = new URL("https://api.github.com/repos/" + owner + "/" + repo + "/releases/latest");
+        StringBuilder response = new StringBuilder();
+
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(github.openStream()))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                response.append(line);
+            }
+        }
+
+        String jsonResponse = response.toString();
+        String tag = "\"tag_name\":\"";
+        int start = jsonResponse.indexOf(tag) + tag.length();
+        int end = jsonResponse.indexOf("\"", start);
+
+        if (start != -1 && end != -1) {
+            return jsonResponse.substring(start, end);
+        } else {
+            throw new IOException("Could not parse version from GitHub API response");
         }
     }
 
