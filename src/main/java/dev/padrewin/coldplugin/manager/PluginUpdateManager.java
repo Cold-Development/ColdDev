@@ -2,21 +2,29 @@ package dev.padrewin.coldplugin.manager;
 
 import dev.padrewin.coldplugin.ColdPlugin;
 import dev.padrewin.coldplugin.config.CommentedFileConfiguration;
-import dev.padrewin.coldplugin.utils.NMSUtil;
 import dev.padrewin.coldplugin.utils.ColdDevUtils;
 import dev.padrewin.coldplugin.utils.StringPlaceholders;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
 import java.net.URL;
-import java.util.concurrent.CompletableFuture;
+
+import net.md_5.bungee.api.ChatColor;
+import net.md_5.bungee.api.chat.ClickEvent;
+import net.md_5.bungee.api.chat.HoverEvent;
+import net.md_5.bungee.api.chat.TextComponent;
+import net.md_5.bungee.api.chat.hover.content.Text;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.scheduler.BukkitRunnable;
+
+import java.util.HashMap;
+import java.util.Map;
 
 public class PluginUpdateManager extends Manager implements Listener {
 
@@ -33,7 +41,8 @@ public class PluginUpdateManager extends Manager implements Listener {
             "================================================"
     };
 
-    private boolean displayedSnapshotHeader;
+    private static final Map<String, Boolean> updateMessageShownMap = new HashMap<>();
+
     private String updateVersion;
 
     public PluginUpdateManager(ColdPlugin coldPlugin) {
@@ -49,11 +58,11 @@ public class PluginUpdateManager extends Manager implements Listener {
         File configFile = new File(this.coldPlugin.getColdDevDataFolder(), "config.yml");
 
         String currentVersion = this.coldPlugin.getDescription().getVersion();
-        if (currentVersion.contains("-SNAPSHOT") && !this.displayedSnapshotHeader) {
+        if (currentVersion.contains("-SNAPSHOT") && !hasShownUpdateMessage()) {
             for (String line : SNAPSHOT_HEADER) {
                 this.coldPlugin.getLogger().warning(line);
             }
-            this.displayedSnapshotHeader = true;
+            setUpdateMessageShown();
             return;
         }
 
@@ -72,8 +81,6 @@ public class PluginUpdateManager extends Manager implements Listener {
         this.coldPlugin.getScheduler().runTaskAsync(() -> this.checkForUpdate(currentVersion));
     }
 
-    private boolean updateMessageShown = false;
-
     private void checkForUpdate(String currentVersion) {
         try {
             String latestVersion = this.getLatestVersion();
@@ -81,7 +88,7 @@ public class PluginUpdateManager extends Manager implements Listener {
             if (ColdDevUtils.isUpdateAvailable(latestVersion, currentVersion)) {
                 this.updateVersion = latestVersion;
 
-                if (updateMessageShown) {
+                if (hasShownUpdateMessage()) {
                     return;
                 }
 
@@ -90,8 +97,7 @@ public class PluginUpdateManager extends Manager implements Listener {
                         + ANSI_BOLD + ANSI_RED + "v" + currentVersion + "." + ANSI_RESET;
 
                 ColdDevUtils.getLogger().info(message);
-
-                updateMessageShown = true;
+                setUpdateMessageShown();
             }
         } catch (Exception e) {
             ColdDevUtils.getLogger().warning("An error occurred checking for an update. There is either no established internet connection or the GitHub API is down.");
@@ -100,38 +106,54 @@ public class PluginUpdateManager extends Manager implements Listener {
 
     @Override
     public void disable() {
+        // Resetăm starea la dezactivare
+        updateMessageShownMap.clear();
+    }
 
+    private boolean hasShownUpdateMessage() {
+        return updateMessageShownMap.getOrDefault(this.coldPlugin.getName(), false);
+    }
+
+    private void setUpdateMessageShown() {
+        updateMessageShownMap.put(this.coldPlugin.getName(), true);
     }
 
     /**
-     * Gets the latest version of the plugin from the Spigot Web API
+     * Gets the latest version of the plugin from the GitHub API
      *
-     * @return the latest version of the plugin from Spigot
+     * @return the latest version of the plugin from GitHub
      * @throws IOException if a network error occurs
      */
     private String getLatestVersion() throws IOException {
         String owner = this.coldPlugin.getGithubOwner();
         String repo = this.coldPlugin.getGithubRepo();
-
         URL github = new URL("https://api.github.com/repos/" + owner + "/" + repo + "/releases/latest");
-        StringBuilder response = new StringBuilder();
 
-        try (BufferedReader reader = new BufferedReader(new InputStreamReader(github.openStream()))) {
-            String line;
-            while ((line = reader.readLine()) != null) {
-                response.append(line);
+        HttpURLConnection connection = (HttpURLConnection) github.openConnection();
+        connection.setRequestMethod("GET");
+
+        int responseCode = connection.getResponseCode();
+        if (responseCode == HttpURLConnection.HTTP_OK) {
+            StringBuilder response = new StringBuilder();
+            try (BufferedReader reader = new BufferedReader(new InputStreamReader(connection.getInputStream()))) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    response.append(line);
+                }
             }
-        }
 
-        String jsonResponse = response.toString();
-        String tag = "\"tag_name\":\"";
-        int start = jsonResponse.indexOf(tag) + tag.length();
-        int end = jsonResponse.indexOf("\"", start);
+            String jsonResponse = response.toString();
+            String tag = "\"tag_name\":\"";
+            int start = jsonResponse.indexOf(tag) + tag.length();
+            int end = jsonResponse.indexOf("\"", start);
 
-        if (start != -1 && end != -1) {
-            return jsonResponse.substring(start, end);
+            if (start != -1 && end != -1) {
+                return jsonResponse.substring(start, end);
+            } else {
+                throw new IOException("Could not parse version from GitHub API response");
+            }
         } else {
-            throw new IOException("Could not parse version from GitHub API response");
+            throw new IOException("Failed to fetch latest version. Response code: " + responseCode);
         }
     }
 
@@ -159,19 +181,29 @@ public class PluginUpdateManager extends Manager implements Listener {
             return;
         }
 
-        // Creează o sarcină cu un delay de 5 secunde
         new BukkitRunnable() {
             @Override
             public void run() {
                 String website = coldPlugin.getDescription().getWebsite();
                 String updateMessage = "&cAn update for " + ColdDevUtils.GRADIENT +
-                        coldPlugin.getName() + " &c(&4%new%&c) is available! You are running &4v%current%&c." +
-                        (website != null ? " " + website : "");
+                        coldPlugin.getName() + " &c(&4%new%&c) is available! You are running &4v%current%&c.";
 
                 StringPlaceholders placeholders = StringPlaceholders.of("new", updateVersion, "current", coldPlugin.getDescription().getVersion());
-                ColdDevUtils.sendMessage(player, updateMessage, placeholders);
-            }
-        }.runTaskLater(this.coldPlugin, 100L); // 100 ticks = 5 secunde
-    }
 
+                ColdDevUtils.sendMessage(player, updateMessage, placeholders);
+
+                if (website != null) {
+                    TextComponent clickHereComponent = new TextComponent("Click here to update");
+                    clickHereComponent.setUnderlined(true);
+                    clickHereComponent.setColor(ChatColor.GREEN);
+
+                    clickHereComponent.setClickEvent(new ClickEvent(ClickEvent.Action.OPEN_URL, website));
+                    clickHereComponent.setHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, new Text("Click to open GitHub.")));
+
+                    player.spigot().sendMessage(clickHereComponent);
+                    player.sendMessage("");
+                }
+            }
+        }.runTaskLater(this.coldPlugin, 150L);
+    }
 }

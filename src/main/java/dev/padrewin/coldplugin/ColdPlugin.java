@@ -41,7 +41,7 @@ public abstract class ColdPlugin extends JavaPlugin {
     /**
      * The ColdPlugin identifier
      */
-    public static final String COLDDEV_VERSION = "@version@";
+    public static final String COLDDEV_VERSION = "1.3.2";
 
     /**
      * The plugin ID on bStats

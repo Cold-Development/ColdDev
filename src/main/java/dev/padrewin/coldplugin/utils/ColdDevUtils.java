@@ -11,7 +11,7 @@ import org.bukkit.command.CommandSender;
 
 public final class ColdDevUtils {
 
-    public static final String GRADIENT = "<g:#8A2387:#E94057:#F27121>";
+    public static final String GRADIENT = "<g:#635AA7:#E6D4F8:#9E48F6>";
     public static final String PREFIX = "&8「" + GRADIENT + "ColdDev&8」&7» ";
 
     private static Logger logger;
