@@ -157,7 +157,27 @@ public abstract class ColdPlugin extends JavaPlugin {
      * @return the order in which Managers should be loaded, excluding
      */
     @NotNull
-    protected abstract List<Class<? extends Manager>> getManagerLoadPriority();
+    protected List<Class<? extends Manager>> getManagerLoadPriority() {
+        List<Class<? extends Manager>> managers = new ArrayList<>();
+
+        if (this.hasDataManager()) {
+            managers.add(this.dataManagerClass);
+        }
+
+        if (this.usesLocaleManager()) {
+            managers.add(this.localeManagerClass);
+        }
+
+        if (this.hasCommandManager()) {
+            managers.add(this.commandManagerClass);
+        }
+
+        return managers;
+    }
+
+    public boolean usesLocaleManager() {
+        return this.localeManagerClass != null;
+    }
 
     /**
      * Checks if the database is local only.
@@ -209,11 +229,11 @@ public abstract class ColdPlugin extends JavaPlugin {
             if (this.hasDataManager())
                 managerLoadPriority.add(this.dataManagerClass);
 
-            if (this.hasLocaleManager())
+            if (this.usesLocaleManager())
                 managerLoadPriority.add(this.localeManagerClass);
 
-            if (this.hasCommandManager())
-                managerLoadPriority.add(this.commandManagerClass);
+            if (this.usesLocaleManager())
+                managerLoadPriority.add(this.localeManagerClass);
 
             managerLoadPriority.addAll(this.getManagerLoadPriority());
 
@@ -263,8 +283,11 @@ public abstract class ColdPlugin extends JavaPlugin {
     @SuppressWarnings("unchecked")
     @NotNull
     public <T extends Manager> T getManager(Class<T> managerClass) {
-        // Get the actual class if the abstract one is requested
         Class<? extends Manager> lookupClass = this.remapAbstractManagerClasses(managerClass);
+
+        if (managerClass == AbstractLocaleManager.class && !this.usesLocaleManager()) {
+            throw new ManagerInitializationException(managerClass, new NullPointerException("LocaleManager is not defined."));
+        }
 
         AtomicBoolean initialized = new AtomicBoolean();
         T manager = (T) this.managers.computeIfAbsent(lookupClass, key -> {
@@ -294,7 +317,7 @@ public abstract class ColdPlugin extends JavaPlugin {
         Class<? extends Manager> lookupClass;
         if (this.hasDataManager() && managerClass == AbstractDataManager.class) {
             lookupClass = this.dataManagerClass;
-        } else if (this.hasLocaleManager() && managerClass == AbstractLocaleManager.class) {
+        } else if (this.usesLocaleManager() && managerClass == AbstractLocaleManager.class) {
             lookupClass = this.localeManagerClass;
         } else if (this.hasCommandManager() && managerClass == AbstractCommandManager.class) {
             lookupClass = this.commandManagerClass;

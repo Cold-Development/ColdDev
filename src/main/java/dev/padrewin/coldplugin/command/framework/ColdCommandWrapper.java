@@ -194,14 +194,30 @@ public class ColdCommandWrapper extends BukkitCommand {
 
     @Override
     public boolean execute(CommandSender sender, String commandLabel, String[] args) {
-        AbstractLocaleManager localeManager = this.coldPlugin.getManager(AbstractLocaleManager.class);
+        final AbstractLocaleManager localeManager;
+
+        // Verificăm dacă pluginul folosește LocaleManager
+        if (this.coldPlugin.usesLocaleManager()) {
+            localeManager = this.coldPlugin.getManager(AbstractLocaleManager.class);
+        } else {
+            localeManager = null;
+        }
+
         if (this.command.isPlayerOnly() && !(sender instanceof Player)) {
-            localeManager.sendCommandMessage(sender, "only-player");
+            if (localeManager != null) {
+                localeManager.sendCommandMessage(sender, "only-player");
+            } else {
+                sender.sendMessage("This command can only be used by players.");
+            }
             return true;
         }
 
         if (!this.command.canUse(sender)) {
-            localeManager.sendCommandMessage(sender, "no-permission");
+            if (localeManager != null) {
+                localeManager.sendCommandMessage(sender, "no-permission");
+            } else {
+                sender.sendMessage("You do not have permission to use this command.");
+            }
             return true;
         }
 
@@ -214,8 +230,9 @@ public class ColdCommandWrapper extends BukkitCommand {
         while (walker.hasNext()) {
             if (!inputIterator.hasNext()) {
                 List<Argument> remainingArguments = walker.walkRemaining();
-                if (remainingArguments.stream().allMatch(Argument::optional))
-                    break; // All remaining arguments are optional, this command execution is valid
+                if (remainingArguments.stream().allMatch(Argument::optional)) {
+                    break; // Toate argumentele rămase sunt opționale
+                }
 
                 remainingArguments.forEach(context::put);
                 missingArgs = true;
@@ -296,7 +313,11 @@ public class ColdCommandWrapper extends BukkitCommand {
         if (walker.isCompleted() && !missingArgs) {
             ColdCommand commandToExecute = walker.getCurrentCommand();
             if (!commandToExecute.canUse(sender)) {
-                localeManager.sendCommandMessage(sender, "no-permission");
+                if (localeManager != null) {
+                    localeManager.sendCommandMessage(sender, "no-permission");
+                } else {
+                    sender.sendMessage("You do not have permission to use this command.");
+                }
                 return true;
             }
 
@@ -306,7 +327,11 @@ public class ColdCommandWrapper extends BukkitCommand {
             allArguments.addAll(walker.walkRemaining());
             allArguments.addAll(walker.getUnconsumed());
             String argumentsString = ArgumentsDefinition.getParametersString(context, allArguments);
-            localeManager.sendCommandMessage(sender, "command-usage", StringPlaceholders.of("cmd", context.getCommandLabel(), "args", argumentsString));
+            if (localeManager != null) {
+                localeManager.sendCommandMessage(sender, "command-usage", StringPlaceholders.of("cmd", context.getCommandLabel(), "args", argumentsString));
+            } else {
+                sender.sendMessage("Usage: /" + context.getCommandLabel() + " " + argumentsString);
+            }
         }
 
         return true;
