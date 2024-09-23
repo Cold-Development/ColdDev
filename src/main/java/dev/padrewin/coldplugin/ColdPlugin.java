@@ -13,13 +13,10 @@ import dev.padrewin.coldplugin.objects.ColdPluginData;
 import dev.padrewin.coldplugin.scheduler.ColdScheduler;
 import dev.padrewin.coldplugin.utils.ColdDevUtils;
 import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
 import java.lang.reflect.Method;
-import java.lang.reflect.Modifier;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Deque;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -41,7 +38,21 @@ public abstract class ColdPlugin extends JavaPlugin {
     /**
      * The ColdPlugin identifier
      */
-    public static final String COLDDEV_VERSION = "1.3.2";
+    public static final String COLDDEV_VERSION;
+
+    static {
+        String version = "unknown";
+        Properties properties = new Properties();
+        try (InputStream input = ColdPlugin.class.getResourceAsStream("/filter.properties")) {
+            if (input != null) {
+                properties.load(input);
+                version = properties.getProperty("version", "unknown");
+            }
+        } catch (IOException e) {
+            Bukkit.getLogger().severe("Failed to load version from filter.properties");
+        }
+        COLDDEV_VERSION = version;
+    }
 
     /**
      * The plugin ID on bStats

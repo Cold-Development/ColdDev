@@ -106,7 +106,7 @@ public class PluginUpdateManager extends Manager implements Listener {
 
     @Override
     public void disable() {
-        // Resetăm starea la dezactivare
+
         updateMessageShownMap.clear();
     }
 
