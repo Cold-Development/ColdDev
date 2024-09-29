@@ -53,7 +53,7 @@ jobs:
           <settings>
             <servers>
               <server>
-                <id>com.github.padrewin</id>
+                <id>com.github.coldplugin</id>
                 <username>padrewin</username>
                 <password>${{ secrets.COLDDEV_PACKAGE }}
               </server>
