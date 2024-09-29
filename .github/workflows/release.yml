@@ -55,7 +55,7 @@ jobs:
               <server>
                 <id>com.github.coldplugin</id>
                 <username>padrewin</username>
-                <password>${{ secrets.COLDDEV_PACKAGE }}
+                <password>${{ secrets.COLDDEV_PACKAGE }}</password>
               </server>
             </servers>
           </settings>
