@@ -1,3 +1,5 @@
+name: Build and Publish Package
+
 on:
   push:
     branches:
@@ -25,7 +27,7 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      # Build the project using Maven
+      # Build the project using Maven (only package, no deploy)
       - name: Build with Maven
         run: mvn -B package --file pom.xml
 
@@ -48,10 +50,18 @@ jobs:
       - name: Create settings.xml
         run: |
           cat <<EOF > $GITHUB_WORKSPACE/settings.xml
-          ${{ secrets.COLDDEV_PACKAGE }}
+          <settings>
+            <servers>
+              <server>
+                <id>com.github.padrewin</id>
+                <username>padrewin</username>
+                <password>${{ secrets.COLDDEV_PACKAGE }}
+              </server>
+            </servers>
+          </settings>
           EOF
 
-      # Deploy the package to GitHub Packages using Maven
+      # Deploy the package to GitHub Packages using Maven (actual publish)
       - name: Publish to GitHub Packages Apache Maven
         run: mvn deploy -s $GITHUB_WORKSPACE/settings.xml
         env:
