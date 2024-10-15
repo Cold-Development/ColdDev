@@ -1,4 +1,4 @@
-package dev.padrewin.coldplugin.compatibility.wrapper;
+package dev.padrewin.colddev.compatibility.wrapper;
 
 import org.bukkit.event.inventory.InventoryType;
 import org.bukkit.inventory.Inventory;

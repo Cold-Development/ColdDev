@@ -1,6 +1,6 @@
-package dev.padrewin.coldplugin.compatibility.handler;
+package dev.padrewin.colddev.compatibility.handler;
 
-import dev.padrewin.coldplugin.compatibility.wrapper.WrappedKeyed;
+import dev.padrewin.colddev.compatibility.wrapper.WrappedKeyed;
 import org.bukkit.entity.Villager;
 
 public interface OldEnumHandler {

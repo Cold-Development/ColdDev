@@ -1,4 +1,4 @@
-package dev.padrewin.coldplugin.compatibility.wrapper;
+package dev.padrewin.colddev.compatibility.wrapper;
 
 import org.bukkit.NamespacedKey;
 

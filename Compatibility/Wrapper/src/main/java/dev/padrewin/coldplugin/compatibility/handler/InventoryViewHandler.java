@@ -1,6 +1,6 @@
-package dev.padrewin.coldplugin.compatibility.handler;
+package dev.padrewin.colddev.compatibility.handler;
 
-import dev.padrewin.coldplugin.compatibility.wrapper.WrappedInventoryView;
+import dev.padrewin.colddev.compatibility.wrapper.WrappedInventoryView;
 import org.bukkit.entity.Player;
 import org.bukkit.event.inventory.InventoryEvent;
 import org.bukkit.inventory.Inventory;

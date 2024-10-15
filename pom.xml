@@ -5,7 +5,7 @@
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>dev.padrewin</groupId>
-    <artifactId>coldplugin</artifactId>
+    <artifactId>colddev</artifactId>
     <version>1.4</version>
     <packaging>jar</packaging>
 
@@ -51,7 +51,7 @@
                             <relocations>
                                 <relocation>
                                     <pattern>org.bstats</pattern>
-                                    <shadedPattern>dev.padrewin.coldplugin.lib.bstats</shadedPattern>
+                                    <shadedPattern>dev.padrewin.colddev.lib.bstats</shadedPattern>
                                 </relocation>
                             </relocations>
                         </configuration>

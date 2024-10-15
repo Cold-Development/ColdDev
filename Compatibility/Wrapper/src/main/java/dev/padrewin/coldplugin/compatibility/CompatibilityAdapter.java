@@ -1,9 +1,9 @@
-package dev.padrewin.coldplugin.compatibility;
+package dev.padrewin.colddev.compatibility;
 
-import dev.padrewin.coldplugin.compatibility.handler.CreatureSpawnerHandler;
-import dev.padrewin.coldplugin.compatibility.handler.InventoryViewHandler;
-import dev.padrewin.coldplugin.compatibility.handler.OldEnumHandler;
-import dev.padrewin.coldplugin.compatibility.handler.ShearedHandler;
+import dev.padrewin.colddev.compatibility.handler.CreatureSpawnerHandler;
+import dev.padrewin.colddev.compatibility.handler.InventoryViewHandler;
+import dev.padrewin.colddev.compatibility.handler.OldEnumHandler;
+import dev.padrewin.colddev.compatibility.handler.ShearedHandler;
 
 public final class CompatibilityAdapter {
 

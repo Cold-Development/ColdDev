@@ -1,6 +1,6 @@
-package dev.padrewin.coldplugin.compatibility.handler;
+package dev.padrewin.colddev.compatibility.handler;
 
-import dev.padrewin.coldplugin.utils.NMSUtil;
+import dev.padrewin.colddev.utils.NMSUtil;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Shearable;
 import org.bukkit.entity.Snowman;
