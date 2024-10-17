@@ -1,6 +1,6 @@
 ![ColdDev](https://imgur.com/9J5FHtB.png)
 # ColdDev
-Internal library used for **Cold Development** plugins. _(some of them)_
+Internal library used for **Cold Development** plugins.
 > [!WARNING]
 > If you ever find a `.jar` file of this lib `colddev.jar`, don't load it into your `~/plugins` folder because won't work.<br>
 > Is just a library used for plugins.
