@@ -89,7 +89,7 @@ public final class ColdDevUtils {
      * @return true if ColdDev has been relocated properly, otherwise false
      */
     public static boolean isRelocated() {
-        String defaultPackage = "dev,padrewin,coldplugin".replace(",", ".");
+        String defaultPackage = "dev,padrewin,colddev".replace(",", ".");
         return !ColdPlugin.class.getPackage().getName().startsWith(defaultPackage);
     }
 

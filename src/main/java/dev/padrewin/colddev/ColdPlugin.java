@@ -55,6 +55,12 @@ public abstract class ColdPlugin extends JavaPlugin {
     }
 
     /**
+     * ANSI colors
+     */
+    String ANSI_GREEN = "\u001B[32m";
+    String ANSI_RESET = "\u001B[0m";
+
+    /**
      * The plugin ID on bStats
      */
     private final int bStatsId;
@@ -114,7 +120,7 @@ public abstract class ColdPlugin extends JavaPlugin {
     @Override
     public void onLoad() {
         // Log that we are loading
-        this.getLogger().info("Initializing using ColdDev v" + COLDDEV_VERSION);
+        this.getLogger().info("Initializing using" + ANSI_GREEN + " ColdDev v" + COLDDEV_VERSION + ANSI_RESET);
 
         // Log severe if the library is not relocated
         if (!ColdDevUtils.isRelocated()) {
@@ -373,9 +379,11 @@ public abstract class ColdPlugin extends JavaPlugin {
     /**
      * @return the ID of the plugin on Spigot, or -1 if not tracked
      */
-//    public final int getSpigotId() {
-//        return this.spigotId;
-//    }
+/*
+    public final int getSpigotId() {
+        return this.spigotId;
+    }
+*/
 
     /**
      * @return the ID of this plugin on bStats, or -1 if not tracked
