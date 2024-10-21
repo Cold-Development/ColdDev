@@ -499,5 +499,5 @@ public abstract class ColdPlugin extends JavaPlugin {
         }
 
     }
- 
+
 }

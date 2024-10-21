@@ -73,7 +73,7 @@ public final class ColdDevUtils {
             latestSplit = Arrays.copyOf(latestSplit, currentSplit.length);
         }
 
-        // Compare pieces from most significant to least significant
+        // Compare pieces from most significant to the least significant
         for (int i = 0; i < latestSplit.length; i++) {
             if (latestSplit[i] > currentSplit[i]) {
                 return true;
