@@ -1,5 +1,11 @@
 ![ColdDev](https://imgur.com/9J5FHtB.png)
 # ColdDev
+<p>
+    <a href="https://github.com/Cold-Development/ColdDev/releases">
+        <img alt="spigot" src="https://img.shields.io/github/v/release/Cold-Development/ColdDev?display_name=release&style=for-the-badge&color=30a648"/>
+    </a>
+</p>
+
 Internal library used for **Cold Development** plugins.
 > [!WARNING]
 > If you ever find a `.jar` file of this lib `colddev.jar`, don't load it into your `~/plugins` folder because won't work.<br>
