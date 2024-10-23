@@ -84,10 +84,9 @@ public class PluginUpdateManager extends Manager implements Listener {
     private void checkForUpdate(String currentVersion) {
         try {
             String latestVersion = this.getLatestVersion();
+            this.updateVersion = latestVersion;
 
-            if (ColdDevUtils.isUpdateAvailable(latestVersion, currentVersion)) {
-                this.updateVersion = latestVersion;
-
+            if (ColdDevUtils.isUpdateAvailable(this.updateVersion, currentVersion)) {
                 if (hasShownUpdateMessage()) {
                     return;
                 }
@@ -98,6 +97,12 @@ public class PluginUpdateManager extends Manager implements Listener {
 
                 ColdDevUtils.getLogger().info(message);
                 setUpdateMessageShown();
+            }
+            else if (ColdDevUtils.isVersionGreater(currentVersion, this.updateVersion)) {
+                String message = ANSI_RED + "WOW! You're running " + ANSI_PURPLE_CHINESE + this.coldPlugin.getName() + ANSI_RED + " ("
+                        + ANSI_BOLD + "v" + currentVersion + ANSI_RESET + ANSI_RED + ") while the latest one released is "
+                        + ANSI_BOLD + "v" + this.updateVersion + ANSI_RESET + ANSI_RED + ". How lucky you are!";
+                ColdDevUtils.getLogger().info(message);
             }
         } catch (Exception e) {
             ColdDevUtils.getLogger().warning("An error occurred checking for an update. There is either no established internet connection or the GitHub API is down.");
