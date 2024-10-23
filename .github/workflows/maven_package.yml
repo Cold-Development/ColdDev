@@ -22,11 +22,19 @@ jobs:
         java-version: '17'
         distribution: 'temurin'
 
-    # Create settings.xml from the GitHub secret
-    - name: Create settings.xml
+    # Create settings.xml from the GitHub secret for publish
+    - name: Create settings.xml for publish
       run: |
         cat <<EOF > $GITHUB_WORKSPACE/settings.xml
-        ${{ secrets.COLDDEV_PACKAGE }}
+        <settings>
+          <servers>
+            <server>
+              <id>com.github.coldplugin</id>
+              <username>padrewin</username>
+              <password>${{ secrets.COLDDEV_PACKAGE }}</password>
+            </server>
+          </servers>
+        </settings>
         EOF
 
     # Build the project using Maven
