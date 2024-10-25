@@ -53,9 +53,9 @@ jobs:
           <settings>
             <servers>
               <server>
-                <id>com.github.coldplugin</id>
+                <id>colddev-repo</id>
                 <username>padrewin</username>
-                <password>${{ secrets.COLDDEV_PACKAGE }}</password>
+                <password>${{ secrets.COLDDEV_REPO }}</password>
               </server>
             </servers>
           </settings>
