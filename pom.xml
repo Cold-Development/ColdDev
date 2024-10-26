@@ -20,8 +20,8 @@
 
     <distributionManagement>
         <repository>
-            <id>com.github.coldplugin</id>
-            <url>https://maven.pkg.github.com/Cold-Development/ColdDev</url>
+            <id>colddev-repo</id>
+            <url>https://maven.pkg.github.com/Cold-Development</url>
         </repository>
     </distributionManagement>
 
