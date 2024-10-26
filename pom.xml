@@ -21,7 +21,7 @@
     <distributionManagement>
         <repository>
             <id>colddev-repo</id>
-            <url>https://maven.pkg.github.com/Cold-Development</url>
+            <url>https://hub.colddev.dev/repository/public-releases/</url>
         </repository>
     </distributionManagement>
 
