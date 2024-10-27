@@ -22,27 +22,25 @@ jobs:
         java-version: '17'
         distribution: 'temurin'
 
-    # Create settings.xml from the GitHub secret for publish
-    - name: Create settings.xml for publish
+    # Create settings.xml for publishing to Nexus
+    - name: Create settings.xml for publishing
       run: |
         cat <<EOF > $GITHUB_WORKSPACE/settings.xml
         <settings>
           <servers>
             <server>
               <id>colddev-repo</id>
-              <username>padrewin</username>
-              <password>${{ secrets.COLDDEV_REPO }}</password>
+              <username>${{ secrets.NEXUS_USERNAME }}</username>
+              <password>${{ secrets.NEXUS_PASSWORD }}</password>
             </server>
           </servers>
         </settings>
         EOF
 
-    # Build the project using Maven
+    # Build and package the project
     - name: Build with Maven
       run: mvn -B package -s $GITHUB_WORKSPACE/settings.xml --file pom.xml
 
-    # Deploy the package to GitHub Packages using Maven
-    - name: Publish to GitHub Packages Apache Maven
+    # Deploy to Nexus
+    - name: Deploy to Nexus Repository
       run: mvn deploy -s $GITHUB_WORKSPACE/settings.xml -e -X
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
