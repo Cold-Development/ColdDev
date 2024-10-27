@@ -20,8 +20,8 @@ Internal library used for **Cold Development** plugins.
 ---
 ## </> For developers
 <p>
-    <a href="https://github.com/Cold-Development/ColdDev/releases">
-        <img alt="spigot" src="https://img.shields.io/github/v/release/Cold-Development/ColdDev?display_name=release&style=for-the-badge&color=30a648"/>
+    <a href="https://hub.colddev.dev/#browse/browse:public-releases:dev%2Fpadrewin%2Fcolddev">
+        <img alt="spigot" src="https://img.shields.io/nexus/r/dev.padrewin/colddev?server=https%3A%2F%2Fhub.colddev.dev&style=for-the-badge&logo=apachemaven&logoColor=red&label=RELEASE&color=r0b07"/>
     </a>
 </p>
 
@@ -31,21 +31,21 @@ ColdDev is a standalone plugin library, so you will need to install it on any pl
 - Repository<br>
 
 ```pom.xml
-<repository>
-   <id>com.github.coldplugin</id>
-   <url>https://maven.pkg.github.com/Cold-Development/ColdDev</url>
-</repository>
+        <repository>
+            <id>colddev-repo</id>
+            <url>https://hub.colddev.dev/repository/public-releases/</url>
+        </repository>
 ```
 - Dependency
-  - Replace `{version}` with the latest version available; example `1.0`.<br>
+  - Replace `${version}` with the latest version available; example `1.0`.<br>
   
 ```pom.xml
-<dependency>
-  <groupId>dev.padrewin</groupId>
-  <artifactId>colddev</artifactId>
-  <version>{version}</version>
-  <scope>compile</scope> <!-- Make sure the scope is COMPILE. -->
-</dependency>
+        <dependency>
+            <groupId>dev.padrewin</groupId>
+            <artifactId>colddev</artifactId>
+            <version>${version}</version>
+            <scope>compile</scope> <!-- Make sure the scope is COMPILE. -->
+        </dependency>
 ```
 
 ![](https://raw.githubusercontent.com/mayhemantt/mayhemantt/Update/svg/Bottom.svg)
