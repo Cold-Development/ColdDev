@@ -119,8 +119,8 @@ public final class ColdDevUtils {
     }
 
     public static boolean isVersionGreater(String currentVersion, String releasedVersion) {
-        String[] current = currentVersion.split("\\.");
-        String[] released = releasedVersion.split("\\.");
+        String[] current = currentVersion.replaceAll("[^0-9.]", "").split("\\.");
+        String[] released = releasedVersion.replaceAll("[^0-9.]", "").split("\\.");
 
         for (int i = 0; i < Math.min(current.length, released.length); i++) {
             int currentPart = Integer.parseInt(current[i]);
