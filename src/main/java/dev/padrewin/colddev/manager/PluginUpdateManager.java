@@ -85,8 +85,12 @@ public class PluginUpdateManager extends Manager implements Listener {
         try {
             String latestVersion = this.getLatestVersion();
             this.updateVersion = latestVersion;
-
-            if (ColdDevUtils.isUpdateAvailable(this.updateVersion, currentVersion)) {
+            if (ColdDevUtils.isVersionGreater(currentVersion, this.updateVersion)) {
+                String message = ANSI_RED + "WOW! You're running " + ANSI_PURPLE_CHINESE + this.coldPlugin.getName() + ANSI_RED + " ("
+                        + ANSI_BOLD + "v" + currentVersion + ANSI_RESET + ANSI_RED + ") while the latest one released is "
+                        + ANSI_BOLD + this.updateVersion + ANSI_RESET + ANSI_RED + ". How lucky you are!" + ANSI_RESET;
+                ColdDevUtils.getLogger().info(message);
+            } else if (ColdDevUtils.isUpdateAvailable(this.updateVersion, currentVersion)) {
                 if (hasShownUpdateMessage()) {
                     return;
                 }
@@ -97,12 +101,6 @@ public class PluginUpdateManager extends Manager implements Listener {
 
                 ColdDevUtils.getLogger().info(message);
                 setUpdateMessageShown();
-            }
-            else if (ColdDevUtils.isVersionGreater(currentVersion, this.updateVersion)) {
-                String message = ANSI_RED + "WOW! You're running " + ANSI_PURPLE_CHINESE + this.coldPlugin.getName() + ANSI_RED + " ("
-                        + ANSI_BOLD + "v" + currentVersion + ANSI_RESET + ANSI_RED + ") while the latest one released is "
-                        + ANSI_BOLD + "v" + this.updateVersion + ANSI_RESET + ANSI_RED + ". How lucky you are!";
-                ColdDevUtils.getLogger().info(message);
             }
         } catch (Exception e) {
             ColdDevUtils.getLogger().warning("An error occurred checking for an update. There is either no established internet connection or the GitHub API is down.");
@@ -189,24 +187,30 @@ public class PluginUpdateManager extends Manager implements Listener {
         new BukkitRunnable() {
             @Override
             public void run() {
+                String currentVersion = coldPlugin.getDescription().getVersion();
                 String website = coldPlugin.getDescription().getWebsite();
-                String updateMessage = "&cAn update for " + ColdDevUtils.GRADIENT +
-                        coldPlugin.getName() + " &c(&4%new%&c) is available! You are running &4v%current%&c.";
 
-                StringPlaceholders placeholders = StringPlaceholders.of("new", updateVersion, "current", coldPlugin.getDescription().getVersion());
+                if (ColdDevUtils.isVersionGreater(currentVersion, updateVersion)) {
+                    String message = "&cWOW! You're running " + ColdDevUtils.GRADIENT + coldPlugin.getName() + " &c(&4v" + currentVersion + "&c) " +
+                            "while the latest released version is &4" + updateVersion + "&c. How lucky you are!";
+                    ColdDevUtils.sendMessage(player, message);
+                }
+                else if (ColdDevUtils.isUpdateAvailable(updateVersion, currentVersion)) {
+                    String updateMessage = "&cAn update for " + ColdDevUtils.GRADIENT +
+                            coldPlugin.getName() + " &c(&4" + updateVersion + "&c) is available! You are running &4v" + currentVersion + "&c.";
 
-                ColdDevUtils.sendMessage(player, updateMessage, placeholders);
+                    ColdDevUtils.sendMessage(player, updateMessage);
 
-                if (website != null) {
-                    TextComponent clickHereComponent = new TextComponent("Click here to update");
-                    clickHereComponent.setUnderlined(true);
-                    clickHereComponent.setColor(ChatColor.GREEN);
+                    if (website != null) {
+                        TextComponent clickHereComponent = new TextComponent("Click here to update");
+                        clickHereComponent.setUnderlined(true);
+                        clickHereComponent.setColor(ChatColor.GREEN);
+                        clickHereComponent.setClickEvent(new ClickEvent(ClickEvent.Action.OPEN_URL, website));
+                        clickHereComponent.setHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, new Text("Click to open GitHub.")));
 
-                    clickHereComponent.setClickEvent(new ClickEvent(ClickEvent.Action.OPEN_URL, website));
-                    clickHereComponent.setHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, new Text("Click to open GitHub.")));
-
-                    player.spigot().sendMessage(clickHereComponent);
-                    player.sendMessage("");
+                        player.spigot().sendMessage(clickHereComponent);
+                        player.sendMessage("");
+                    }
                 }
             }
         }.runTaskLater(this.coldPlugin, 150L);
