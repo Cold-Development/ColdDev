@@ -118,22 +118,4 @@ public final class ColdDevUtils {
         return Math.round(timeUnit.toMillis(value) / 50.0);
     }
 
-    public static boolean isVersionGreater(String currentVersion, String releasedVersion) {
-        String[] current = currentVersion.replaceAll("[^0-9.]", "").split("\\.");
-        String[] released = releasedVersion.replaceAll("[^0-9.]", "").split("\\.");
-
-        for (int i = 0; i < Math.min(current.length, released.length); i++) {
-            int currentPart = Integer.parseInt(current[i]);
-            int releasedPart = Integer.parseInt(released[i]);
-
-            if (currentPart > releasedPart) {
-                return true;
-            } else if (currentPart < releasedPart) {
-                return false;
-            }
-        }
-
-        return current.length > released.length;
-    }
-
 }
