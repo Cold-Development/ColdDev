@@ -6,7 +6,7 @@
 
     <groupId>dev.padrewin</groupId>
     <artifactId>colddev</artifactId>
-    <version>1.4.5</version>
+    <version>1.4.6</version>
     <packaging>jar</packaging>
 
     <name>ColdDev</name>
@@ -16,6 +16,8 @@
         <kotlin.version>1.8.0</kotlin.version>
         <maven.compiler.source>${java.version}</maven.compiler.source>
         <maven.compiler.target>${java.version}</maven.compiler.target>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
     </properties>
 
     <distributionManagement>
@@ -51,12 +53,32 @@
                         <configuration>
                             <minimizeJar>true</minimizeJar>
                             <relocations>
-                                <!-- Relocation for bStats -->
                                 <relocation>
                                     <pattern>org.bstats</pattern>
                                     <shadedPattern>dev.padrewin.colddev.lib.bstats</shadedPattern>
                                 </relocation>
                             </relocations>
+                            <filters>
+                                <filter>
+                                    <artifact>*:*</artifact>
+                                    <excludes>
+                                        <!-- Exclude duplicate META-INF files -->
+                                        <exclude>META-INF/DEPENDENCIES</exclude>
+                                        <exclude>META-INF/LICENSE*</exclude>
+                                        <exclude>META-INF/NOTICE</exclude>
+                                        <exclude>META-INF/NOTICE.txt</exclude>
+                                        <exclude>META-INF/MANIFEST.MF</exclude>
+                                        <exclude>META-INF/maven/**</exclude>
+                                        <exclude>META-INF/*.SF</exclude>
+                                        <exclude>META-INF/*.DSA</exclude>
+                                        <exclude>META-INF/*.RSA</exclude>
+                                        <exclude>META-INF/versions/**</exclude>
+                                        <!-- Exclude module-info for compatibility -->
+                                        <exclude>**/module-info.class</exclude>
+                                        <exclude>**/package-info.class</exclude>
+                                    </excludes>
+                                </filter>
+                            </filters>
                         </configuration>
                     </execution>
                 </executions>
