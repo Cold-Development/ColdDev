@@ -33,7 +33,8 @@ ColdDev is a standalone plugin library, so you will need to install it on any pl
 ```pom.xml
         <repository>
             <id>colddev-repo</id>
-            <url>https://hub.colddev.dev/repository/public-releases/</url>
+            <url>https://repo.colddev.dev/</url>
+<!-- Or use <url>https://hub.colddev.dev/repository/public-releases/</url> -->
         </repository>
 ```
 - Dependency
