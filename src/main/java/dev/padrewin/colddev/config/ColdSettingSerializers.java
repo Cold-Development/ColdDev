@@ -1,9 +1,11 @@
 package dev.padrewin.colddev.config;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import org.bukkit.Material;
 
 public final class ColdSettingSerializers {
@@ -78,6 +80,34 @@ public final class ColdSettingSerializers {
             }
         };
     }
-    //endregion
 
+    public static <T> ColdSettingSerializer<List<T>> list(ColdSettingSerializer<T> elementSerializer) {
+        return new ColdSettingSerializer<List<T>>() {
+            @Override
+            public List<T> read(CommentedConfigurationSection config, String setting) {
+                List<?> rawList = config.getList(setting);
+                if (rawList == null) {
+                    return Collections.emptyList();
+                }
+                return rawList.stream()
+                        .map(element -> elementSerializer.read(config, setting + "." + rawList.indexOf(element)))
+                        .filter(Objects::nonNull)
+                        .collect(Collectors.toList());
+            }
+
+            @Override
+            public void write(CommentedConfigurationSection config, String key, List<T> value, String... comments) {
+                config.addPathedComments(key, comments); // Adaugă comentarii pentru secțiune
+
+                // Dacă lista este null sau goală, scrie-o explicit ca o listă YAML
+                if (value == null || value.isEmpty()) {
+                    config.set(key, Collections.emptyList());
+                } else {
+                    config.set(key, value);
+                }
+            }
+        };
+    }
+
+    //endregion
 }
