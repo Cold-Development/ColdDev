@@ -30,17 +30,43 @@ public class CommentedConfigurationSection implements ConfigurationSection {
     }
 
     public void addComments(String... comments) {
-        for (String comment : comments)
-            this.set(CommentedFileConfiguration.COMMENT_KEY_PREFIX + this.commentsCounter.getAndIncrement(), " " + comment);
+        Set<String> existingComments = new LinkedHashSet<>();
+        for (String key : this.config.getKeys(false)) {
+            if (key.startsWith(CommentedFileConfiguration.COMMENT_KEY_PREFIX)) {
+                Object value = this.config.get(key);
+                if (value instanceof String) {
+                    existingComments.add(((String) value).trim());
+                }
+            }
+        }
+
+        for (String comment : comments) {
+            if (!existingComments.contains(comment.trim())) {
+                this.set(CommentedFileConfiguration.COMMENT_KEY_PREFIX + this.commentsCounter.getAndIncrement(), " " + comment);
+            }
+        }
     }
 
     public void addPathedComments(String path, String... comments) {
-        if (!this.contains(path)) {
-            int subpathIndex = path.lastIndexOf('.');
-            String subpath = subpathIndex == -1 ? "" : path.substring(0, subpathIndex) + '.';
+        if (this.contains(path)) return; // Dacă `path` există, evităm duplicarea.
 
-            for (String comment : comments)
+        Set<String> existingComments = new LinkedHashSet<>();
+        int subpathIndex = path.lastIndexOf('.');
+        String subpath = subpathIndex == -1 ? "" : path.substring(0, subpathIndex) + '.';
+
+        for (String key : this.config.getKeys(false)) {
+            if (key.startsWith(CommentedFileConfiguration.COMMENT_KEY_PREFIX)) {
+                Object value = this.config.get(key);
+                if (value instanceof String) {
+                    existingComments.add(((String) value).trim());
+                }
+            }
+        }
+
+        for (String comment : comments) {
+            if (!existingComments.contains(comment.trim())) {
                 this.set(subpath + CommentedFileConfiguration.COMMENT_KEY_PREFIX + this.commentsCounter.getAndIncrement(), " " + comment);
+            }
         }
     }
 
