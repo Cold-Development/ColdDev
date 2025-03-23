@@ -1,7 +1,7 @@
 package dev.padrewin.colddev.command.framework;
 
 import dev.padrewin.colddev.ColdPlugin;
-
+import dev.padrewin.colddev.command.framework.annotation.ColdExecutable;
 import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.Comparator;
@@ -10,12 +10,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
-
-import dev.padrewin.colddev.command.framework.annotation.ColdExecutable;
 import org.bukkit.command.CommandException;
 
 /**
- * The base class for all ColdDev commands.
+ * The base class for all ColdPlugin commands.
  * <p>
  * Override {@link #createCommandInfo()} to customize the command.
  * <p>
