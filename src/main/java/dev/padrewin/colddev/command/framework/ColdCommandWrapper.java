@@ -25,6 +25,7 @@ public class ColdCommandWrapper extends BukkitCommand {
     private final File dataFolder;
     private final ColdPlugin coldPlugin;
     private final BaseColdCommand command;
+    private final String commandPath; // Track command path for hierarchy
 
     public ColdCommandWrapper(ColdPlugin coldPlugin, BaseColdCommand command) {
         this(coldPlugin.getName().toLowerCase(), coldPlugin.getDataFolder(), coldPlugin, command);
@@ -37,12 +38,16 @@ public class ColdCommandWrapper extends BukkitCommand {
         this.dataFolder = dataFolder;
         this.coldPlugin = coldPlugin;
         this.command = command;
+        this.commandPath = command.getCommandInfo().name();
     }
 
     /**
      * Registers the command to the Bukkit command map and creates a config file for it if it doesn't exist
      */
     public void register() {
+        // Clear the command registry when registering commands (used during reload)
+        CommandRegistry.clearRegistry();
+
         // Register commands
         File commandsDirectory = new File(this.dataFolder, "commands");
         commandsDirectory.mkdirs();
@@ -53,16 +58,27 @@ public class ColdCommandWrapper extends BukkitCommand {
         CommentedFileConfiguration commandConfig = CommentedFileConfiguration.loadConfiguration(commandConfigFile);
 
         AtomicBoolean modified = new AtomicBoolean(false);
-        if (!exists) {
-            commandConfig.addComments("This file lets you disable the command, change the name and aliases, and set the priority.",
-                    "If you edit the name/aliases at the top of this file, you will need to restart the server to see all the changes applied properly.",
-                    "Enabling the priority setting will make this command take priority over commands from other plugins on the server.");
-            modified.set(true);
-        }
 
-        // Write default config values if they don't exist
-        if (!commandConfig.contains("enabled")) {
-            commandConfig.set("enabled", true);
+        // Check if this is the main command
+        boolean isMainCommand = this.command.getCommandInfo().name().equals(this.coldPlugin.getName().toLowerCase());
+
+        if (!exists) {
+            if (isMainCommand) {
+                // Different comments for the main command
+                commandConfig.addComments(
+                        "This file lets you change the name, aliases, and set the priority for the main command.",
+                        "If you edit the name/aliases at the top of this file, you can reload the plugin with /bits reload to apply the changes.",
+                        "The main command cannot be disabled to ensure the reload functionality always works.",
+                        "You can disable individual subcommands below.",
+                        "Enabling the priority setting will make this command take priority over commands from other plugins on the server.");
+            } else {
+                // Regular comments for other commands
+                commandConfig.addComments(
+                        "This file lets you disable the command, change the name and aliases, and set the priority.",
+                        "If you edit the name/aliases at the top of this file, you can reload the plugin with /bits reload to apply the changes.",
+                        "Disabling a command only requires a plugin reload, not a full server restart.",
+                        "Enabling the priority setting will make this command take priority over commands from other plugins on the server.");
+            }
             modified.set(true);
         }
 
@@ -82,20 +98,34 @@ public class ColdCommandWrapper extends BukkitCommand {
         }
 
         // Write subcommands
-        this.writeSubcommands(commandConfig, this.command, modified);
+        this.writeSubcommands(commandConfig, this.command, modified, commandName);
 
-        if (modified.get())
+        // Always save if this is the main command and the enabled option was removed
+        if (modified.get()) {
             commandConfig.save(commandConfigFile);
+        }
 
-        // Don't do anything else if the command is disabled
-        if (!commandConfig.getBoolean("enabled", true))
-            return;
+        // Handle non-main commands - they can be disabled
+        if (!isMainCommand) {
+            boolean isReloadCommand = "reload".equalsIgnoreCase(commandName) ||
+                    this.command.getCommandInfo().aliases().contains("reload");
+
+            // Don't do anything else if the command is disabled (except for reload command)
+            if (!commandConfig.getBoolean("enabled", true) && !isReloadCommand) {
+                // Mark this command as disabled in the registry
+                CommandRegistry.disableCommand(commandName);
+
+                // Log that this command is disabled in configuration
+                this.coldPlugin.getLogger().info("Command '" + commandName + "' is disabled in configuration");
+                return;
+            }
+        }
 
         // Load command config values
         this.command.setNameAndAliases(commandConfig.getString("name"), commandConfig.getStringList("aliases"));
 
         // Load subcommand config values
-        this.loadSubCommands(commandConfig, this.command);
+        this.loadSubCommands(commandConfig, this.command, commandName);
 
         // Set this command's active values
         this.setName(this.command.getName());
@@ -112,7 +142,7 @@ public class ColdCommandWrapper extends BukkitCommand {
         CommandMapUtils.registerCommand(this.namespace, this, commandConfig.getBoolean("priority", false));
     }
 
-    private void writeSubcommands(ConfigurationSection section, ColdCommand command, AtomicBoolean modified) {
+    private void writeSubcommands(ConfigurationSection section, ColdCommand command, AtomicBoolean modified, String parentPath) {
         CommandExecutionWalker walker = new CommandExecutionWalker(command);
         while (walker.hasNext()) {
             walker.step((cmd, argument) -> true, argument -> {
@@ -147,7 +177,27 @@ public class ColdCommandWrapper extends BukkitCommand {
                         modified.set(true);
                     }
 
-                    this.writeSubcommands(subCommandSection, subCommand, modified);
+                    // Special handling for reload subcommand - don't allow it to be disabled
+                    boolean isReloadSubCommand = "reload".equalsIgnoreCase(subCommand.getCommandInfo().name()) ||
+                            subCommand.getCommandInfo().aliases().contains("reload");
+
+                    if (isReloadSubCommand) {
+                        // For reload subcommand, remove the enabled option
+                        if (subCommandSection.contains("enabled")) {
+                            subCommandSection.set("enabled", null);
+                            modified.set(true);
+
+                            // Log that we're fixing the config structure
+                            this.coldPlugin.getLogger().info("Removing 'enabled' option from reload subcommand config - this option is not allowed for reload");
+                        }
+                    } else if (!subCommandSection.contains("enabled")) {
+                        subCommandSection.set("enabled", true);
+                        modified.set(true);
+                    }
+
+                    // Build the command path for this subcommand
+                    String subCommandPath = parentPath + "." + subCommand.getCommandInfo().name();
+                    this.writeSubcommands(subCommandSection, subCommand, modified, subCommandPath);
                 }
 
                 return null;
@@ -155,7 +205,7 @@ public class ColdCommandWrapper extends BukkitCommand {
         }
     }
 
-    private void loadSubCommands(ConfigurationSection section, BaseColdCommand command) {
+    private void loadSubCommands(ConfigurationSection section, BaseColdCommand command, String parentPath) {
         CommandExecutionWalker walker = new CommandExecutionWalker(command);
         while (walker.hasNext()) {
             walker.step((cmd, argument) -> true, argument -> {
@@ -176,8 +226,24 @@ public class ColdCommandWrapper extends BukkitCommand {
                     if (subCommandSection == null)
                         continue;
 
+                    // Build the command path for this subcommand
+                    String subCommandPath = parentPath + "." + subCommand.getCommandInfo().name();
+
+                    // Special handling for reload subcommand - don't allow it to be disabled
+                    boolean isReloadSubCommand = "reload".equalsIgnoreCase(subCommand.getCommandInfo().name()) ||
+                            subCommand.getCommandInfo().aliases().contains("reload");
+
+                    if (!isReloadSubCommand && subCommandSection.contains("enabled") && !subCommandSection.getBoolean("enabled", true)) {
+                        // Mark this subcommand as disabled in the registry
+                        CommandRegistry.disableCommand(subCommandPath);
+
+                        // Log that this subcommand is disabled in configuration
+                        this.coldPlugin.getLogger().info("Subcommand '" + subCommandPath + "' is disabled in configuration");
+                        continue;
+                    }
+
                     subCommand.setNameAndAliases(subCommandSection.getString("name"), subCommandSection.getStringList("aliases"));
-                    this.loadSubCommands(subCommandSection, subCommand);
+                    this.loadSubCommands(subCommandSection, subCommand, subCommandPath);
                 }
 
                 return null;
@@ -194,45 +260,32 @@ public class ColdCommandWrapper extends BukkitCommand {
 
     @Override
     public boolean execute(CommandSender sender, String commandLabel, String[] args) {
-        final AbstractLocaleManager localeManager;
-
-        // Verificăm dacă pluginul folosește LocaleManager
-        if (this.coldPlugin.usesLocaleManager()) {
-            localeManager = this.coldPlugin.getManager(AbstractLocaleManager.class);
-        } else {
-            localeManager = null;
-        }
-
+        AbstractLocaleManager localeManager = this.coldPlugin.getManager(AbstractLocaleManager.class);
         if (this.command.isPlayerOnly() && !(sender instanceof Player)) {
-            if (localeManager != null) {
-                localeManager.sendCommandMessage(sender, "only-player");
-            } else {
-                sender.sendMessage("This command can only be used by players.");
-            }
+            localeManager.sendCommandMessage(sender, "only-player");
             return true;
         }
 
         if (!this.command.canUse(sender)) {
-            if (localeManager != null) {
-                localeManager.sendCommandMessage(sender, "no-permission");
-            } else {
-                sender.sendMessage("You do not have permission to use this command.");
-            }
+            localeManager.sendCommandMessage(sender, "no-permission");
             return true;
         }
 
-        CommandContext context = new CommandContext(sender, commandLabel, args);
+        CommandContext context = new CommandContext(this.coldPlugin, sender, commandLabel, args);
         CommandExecutionWalker walker = new CommandExecutionWalker(this.command);
         InputIterator inputIterator = new InputIterator(Arrays.asList(args));
 
         AtomicBoolean shownErrorMessage = new AtomicBoolean();
         boolean missingArgs = false;
+
+        // Track the command path as we navigate through subcommands
+        final StringBuilder[] currentCommandPath = {new StringBuilder(commandLabel)};
+
         while (walker.hasNext()) {
             if (!inputIterator.hasNext()) {
                 List<Argument> remainingArguments = walker.walkRemaining();
-                if (remainingArguments.stream().allMatch(Argument::optional)) {
-                    break; // Toate argumentele rămase sunt opționale
-                }
+                if (remainingArguments.stream().allMatch(Argument::optional))
+                    break; // All remaining arguments are optional, this command execution is valid
 
                 remainingArguments.forEach(context::put);
                 missingArgs = true;
@@ -254,7 +307,7 @@ public class ColdCommandWrapper extends BukkitCommand {
                     context.put(argument, parsedArgument, inputIterator.getStack());
                     return true;
                 } catch (ArgumentHandler.HandledArgumentException e) {
-                    if (argument.optional() && walker.hasNextStep()) { // Skip if optional and we have more arguments, try the next argument instead and insert a null
+                    if (argument.optional() && walker.hasNextStep()) { // Skip if optional, and we have more arguments, try the next argument instead and insert a null
                         inputIterator.restore(beforeState);
                         context.put(argument);
                         return true;
@@ -305,6 +358,22 @@ public class ColdCommandWrapper extends BukkitCommand {
                     return null;
                 }
 
+                // Update the command path with this subcommand
+                String subCommandName = match.getName();
+                String updatedCommandPath = currentCommandPath[0] + "." + subCommandName;
+
+                // Check if this subcommand is disabled
+                if (CommandRegistry.isDisabled(updatedCommandPath)) {
+                    localeManager.sendCommandMessage(sender, "command-disabled",
+                            StringPlaceholders.of("command", subCommandName));
+                    shownErrorMessage.set(true);
+                    context.put(argument);
+                    return null;
+                }
+
+                // Update the current command path
+                currentCommandPath[0] = new StringBuilder(updatedCommandPath);
+
                 context.put(argument, null, Collections.singletonList(input));
                 return match;
             });
@@ -313,11 +382,7 @@ public class ColdCommandWrapper extends BukkitCommand {
         if (walker.isCompleted() && !missingArgs) {
             ColdCommand commandToExecute = walker.getCurrentCommand();
             if (!commandToExecute.canUse(sender)) {
-                if (localeManager != null) {
-                    localeManager.sendCommandMessage(sender, "no-permission");
-                } else {
-                    sender.sendMessage("You do not have permission to use this command.");
-                }
+                localeManager.sendCommandMessage(sender, "no-permission");
                 return true;
             }
 
@@ -327,11 +392,7 @@ public class ColdCommandWrapper extends BukkitCommand {
             allArguments.addAll(walker.walkRemaining());
             allArguments.addAll(walker.getUnconsumed());
             String argumentsString = ArgumentsDefinition.getParametersString(context, allArguments);
-            if (localeManager != null) {
-                localeManager.sendCommandMessage(sender, "command-usage", StringPlaceholders.of("cmd", context.getCommandLabel(), "args", argumentsString));
-            } else {
-                sender.sendMessage("Usage: /" + context.getCommandLabel() + " " + argumentsString);
-            }
+            localeManager.sendCommandMessage(sender, "command-usage", StringPlaceholders.of("cmd", context.getCommandLabel(), "args", argumentsString));
         }
 
         return true;
@@ -343,11 +404,14 @@ public class ColdCommandWrapper extends BukkitCommand {
         if (this.command.isPlayerOnly() && !isPlayer || !this.command.canUse(sender))
             return Collections.emptyList();
 
-        CommandContext context = new CommandContext(sender, commandLabel, args);
+        CommandContext context = new CommandContext(this.coldPlugin, sender, commandLabel, args);
         CommandExecutionWalker walker = new CommandExecutionWalker(this.command);
         InputIterator inputIterator = new InputIterator(Arrays.asList(args));
 
         List<String> suggestions = new ArrayList<>();
+        // Track the command path for tab completion
+        final StringBuilder[] currentCommandPath = {new StringBuilder(commandLabel)};
+
         while (walker.hasNext()) {
             walker.step((command, argument) -> {
                 // Skip the argument if the condition is not met
@@ -403,7 +467,18 @@ public class ColdCommandWrapper extends BukkitCommand {
                     return null;
 
                 if (!inputIterator.hasNext()) {
+                    // Only suggest enabled subcommands
                     this.streamUsableSubCommands(argument, sender)
+                            .filter(cmd -> {
+                                String cmdPath = currentCommandPath[0] + "." + cmd.getName();
+
+                                // Special case: always allow the reload subcommand
+                                if (cmd.getName().equalsIgnoreCase("reload")) {
+                                    return true;
+                                }
+
+                                return !CommandRegistry.isDisabled(cmdPath);
+                            })
                             .flatMap(x -> Stream.concat(Stream.of(x.getName()), x.getAliases().stream()))
                             .forEach(suggestions::add);
                     return null;
@@ -416,12 +491,34 @@ public class ColdCommandWrapper extends BukkitCommand {
                         .orElse(null);
 
                 if (subCommand != null) {
+                    // Update command path
+                    String subCommandPath = currentCommandPath[0] + "." + subCommand.getName();
+
+                    // Check if this subcommand is disabled
+                    if (CommandRegistry.isDisabled(subCommandPath) && !subCommand.getName().equalsIgnoreCase("reload")) {
+                        return null;
+                    }
+
+                    // Update current path
+                    currentCommandPath[0] = new StringBuilder(subCommandPath);
+
                     if (!inputIterator.hasNext())
                         return null;
                     return subCommand;
                 }
 
+                // Only suggest matching enabled subcommands
                 this.streamUsableSubCommands(argument, sender)
+                        .filter(cmd -> {
+                            String cmdPath = currentCommandPath[0] + "." + cmd.getName();
+
+                            // Special case: always allow the reload subcommand
+                            if (cmd.getName().equalsIgnoreCase("reload")) {
+                                return true;
+                            }
+
+                            return !CommandRegistry.isDisabled(cmdPath);
+                        })
                         .flatMap(x -> Stream.concat(Stream.of(x.getName()), x.getAliases().stream()))
                         .filter(x -> StringUtil.startsWithIgnoreCase(x, input))
                         .forEach(suggestions::add);
@@ -457,5 +554,4 @@ public class ColdCommandWrapper extends BukkitCommand {
     public BaseColdCommand getWrappedCommand() {
         return this.command;
     }
-
 }
