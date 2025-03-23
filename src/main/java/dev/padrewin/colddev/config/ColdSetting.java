@@ -53,20 +53,25 @@ public interface ColdSetting<T> {
 
         T defaultValue = this.getDefaultValue();
         List<String> comments = new ArrayList<>(Arrays.asList(this.getComments()));
-        if (defaultValue != null && !(defaultValue instanceof Collection)) {
-            String defaultValueString = defaultValue.toString();
-            String defaultComment = "Default: ";
-            if (ColdDevUtils.containsConfigSpecialCharacters(defaultValueString)) {
-                defaultComment += "'" + defaultValueString + "'";
-            } else {
-                defaultComment += defaultValueString;
+
+        // Caută în comentarii o valoare specială pentru default
+        String customDefaultComment = "";
+        for (String comment : comments) {
+            if (comment.startsWith("defaultCommentValue:")) {
+                customDefaultComment = comment.substring("defaultCommentValue:".length()).trim();
+                break;
             }
-            comments.add(defaultComment);
+        }
+
+        // Adaugă linia "Default: ..." doar dacă am găsit o valoare personalizată
+        if (!customDefaultComment.isEmpty()) {
+            comments.add("Default: " + customDefaultComment);
         }
 
         String[] commentsArray = comments.toArray(new String[0]);
         this.getSerializer().write(config, this.getKey(), this.getDefaultValue(), commentsArray);
     }
+
 
     static <T> ColdSetting<T> of(String key, ColdSettingSerializer<T> serializer, T defaultValue, String... comments) {
         return of(key, serializer, (Supplier<T>) () -> defaultValue, comments);
