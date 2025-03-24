@@ -130,6 +130,17 @@ public abstract class ColdPlugin extends JavaPlugin {
         }
     }
 
+    /**
+     * @return the data folder for ColdPlugin
+     */
+    @NotNull
+    public final File getColdPluginDataFolder() {
+        File configDir = new File(this.getDataFolder().getParentFile(), "ColdPlugin");
+        if (!configDir.exists())
+            configDir.mkdirs();
+        return configDir;
+    }
+
     @Override
     public void onEnable() {
         // bStats Metrics
@@ -277,7 +288,7 @@ public abstract class ColdPlugin extends JavaPlugin {
     /**
      * Runs {@link Manager#disable} on all managers in the reverse order that they were loaded.
      */
-    void disableManagers() {
+    private void disableManagers() {
         for (Class<? extends Manager> managerClass : this.managerInitializationStack) {
             Manager manager = this.managers.get(managerClass);
             try {

@@ -91,7 +91,7 @@ public class MySQLConnector implements DatabaseConnector {
 
     @Override
     public void cleanup() {
-        // Optional: Add any MySQL-specific cleanup logic here
+
     }
 
     @Override
