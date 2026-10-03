@@ -21,7 +21,6 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerJoinEvent;
-import org.bukkit.scheduler.BukkitRunnable;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -181,28 +180,25 @@ public class PluginUpdateManager extends Manager implements Listener {
             return;
         }
 
-        new BukkitRunnable() {
-            @Override
-            public void run() {
-                String website = coldPlugin.getDescription().getWebsite();
-                String updateMessage = "&cAn update for " + ColdDevUtils.GRADIENT +
-                        coldPlugin.getName() + " &c(&4%new%&c) is available! You are running &4v%current%&c.";
+        this.coldPlugin.getScheduler().runTaskAtEntityLater(player, () -> {
+            String website = coldPlugin.getDescription().getWebsite();
+            String updateMessage = "&cAn update for " + ColdDevUtils.GRADIENT +
+                    coldPlugin.getName() + " &c(&4%new%&c) is available! You are running &4v%current%&c.";
 
-                StringPlaceholders placeholders = StringPlaceholders.of("new", updateVersion, "current", coldPlugin.getDescription().getVersion());
+            StringPlaceholders placeholders = StringPlaceholders.of("new", updateVersion, "current", coldPlugin.getDescription().getVersion());
 
-                ColdDevUtils.sendMessage(player, updateMessage, placeholders);
+            ColdDevUtils.sendMessage(player, updateMessage, placeholders);
 
-                if (website != null) {
-                    Component clickHereComponent = Component.text("Click here to update")
-                            .color(NamedTextColor.GREEN)
-                            .decorate(TextDecoration.UNDERLINED)
-                            .clickEvent(ClickEvent.openUrl(website))
-                            .hoverEvent(HoverEvent.showText(Component.text("Click to open GitHub.")));
+            if (website != null) {
+                Component clickHereComponent = Component.text("Click here to update")
+                        .color(NamedTextColor.GREEN)
+                        .decorate(TextDecoration.UNDERLINED)
+                        .clickEvent(ClickEvent.openUrl(website))
+                        .hoverEvent(HoverEvent.showText(Component.text("Click to open GitHub.")));
 
-                    player.sendMessage(clickHereComponent);
-                    player.sendMessage(Component.empty());
-                }
+                player.sendMessage(clickHereComponent);
+                player.sendMessage(Component.empty());
             }
-        }.runTaskLater(this.coldPlugin, 150L);
+        }, 150L);
     }
 }

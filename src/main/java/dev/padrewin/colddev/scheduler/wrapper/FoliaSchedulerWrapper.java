@@ -1,9 +1,8 @@
 package dev.padrewin.colddev.scheduler.wrapper;
 
-import dev.padrewin.colddev.ColdPlugin;
+import org.bukkit.plugin.Plugin;
 import dev.padrewin.colddev.scheduler.task.FoliaScheduledTask;
 import dev.padrewin.colddev.scheduler.task.ScheduledTask;
-import dev.padrewin.colddev.utils.ColdDevUtils;
 import io.papermc.paper.threadedregions.scheduler.AsyncScheduler;
 import io.papermc.paper.threadedregions.scheduler.GlobalRegionScheduler;
 import io.papermc.paper.threadedregions.scheduler.RegionScheduler;
@@ -14,12 +13,12 @@ import org.bukkit.entity.Entity;
 
 public class FoliaSchedulerWrapper implements SchedulerWrapper {
 
-    private final ColdPlugin coldPlugin;
+    private final Plugin coldPlugin;
     private final RegionScheduler regionScheduler;
     private final GlobalRegionScheduler globalRegionScheduler;
     private final AsyncScheduler asyncScheduler;
 
-    public FoliaSchedulerWrapper(ColdPlugin coldPlugin) {
+    public FoliaSchedulerWrapper(Plugin coldPlugin) {
         this.coldPlugin = coldPlugin;
         this.regionScheduler = Bukkit.getRegionScheduler();
         this.globalRegionScheduler = Bukkit.getGlobalRegionScheduler();
@@ -73,7 +72,7 @@ public class FoliaSchedulerWrapper implements SchedulerWrapper {
 
     @Override
     public ScheduledTask runTaskTimer(Runnable runnable, long delay, long period, TimeUnit timeUnit) {
-        return wrap(this.globalRegionScheduler.runAtFixedRate(this.coldPlugin, task -> runnable.run(), fix(ColdDevUtils.timeUnitToTicks(delay, timeUnit)), fix(ColdDevUtils.timeUnitToTicks(period, timeUnit))));
+        return wrap(this.globalRegionScheduler.runAtFixedRate(this.coldPlugin, task -> runnable.run(), fix(toTicks(delay, timeUnit)), fix(toTicks(period, timeUnit))));
     }
 
     @Override
@@ -98,7 +97,7 @@ public class FoliaSchedulerWrapper implements SchedulerWrapper {
 
     @Override
     public ScheduledTask runTaskAtLocationLater(Location location, Runnable runnable, long delay, TimeUnit timeUnit) {
-        return wrap(this.regionScheduler.runDelayed(this.coldPlugin, location, task -> runnable.run(), fix(ColdDevUtils.timeUnitToTicks(delay, timeUnit))));
+        return wrap(this.regionScheduler.runDelayed(this.coldPlugin, location, task -> runnable.run(), fix(toTicks(delay, timeUnit))));
     }
 
     @Override
@@ -108,7 +107,7 @@ public class FoliaSchedulerWrapper implements SchedulerWrapper {
 
     @Override
     public ScheduledTask runTaskTimerAtLocation(Location location, Runnable runnable, long delay, long period, TimeUnit timeUnit) {
-        return wrap(this.regionScheduler.runAtFixedRate(this.coldPlugin, location, task -> runnable.run(), fix(ColdDevUtils.timeUnitToTicks(delay, timeUnit)), fix(ColdDevUtils.timeUnitToTicks(period, timeUnit))));
+        return wrap(this.regionScheduler.runAtFixedRate(this.coldPlugin, location, task -> runnable.run(), fix(toTicks(delay, timeUnit)), fix(toTicks(period, timeUnit))));
     }
 
     @Override
@@ -123,7 +122,23 @@ public class FoliaSchedulerWrapper implements SchedulerWrapper {
 
     @Override
     public ScheduledTask runTaskAtEntityLater(Entity entity, Runnable runnable, long delay, TimeUnit timeUnit) {
-        return wrap(entity.getScheduler().runDelayed(this.coldPlugin, task -> runnable.run(), null, fix(ColdDevUtils.timeUnitToTicks(delay, timeUnit))));
+        return wrap(entity.getScheduler().runDelayed(this.coldPlugin, task -> runnable.run(), null, fix(toTicks(delay, timeUnit))));
+    }
+
+    @Override
+    public ScheduledTask runTaskAtEntity(Entity entity, Runnable runnable, Runnable retired) {
+        io.papermc.paper.threadedregions.scheduler.ScheduledTask task = entity.getScheduler().run(this.coldPlugin, t -> runnable.run(), retired);
+        if (task == null && retired != null)
+            this.runTask(retired);
+        return wrap(task);
+    }
+
+    @Override
+    public ScheduledTask runTaskTimerAtEntity(Entity entity, Runnable runnable, Runnable retired, long delay, long period) {
+        io.papermc.paper.threadedregions.scheduler.ScheduledTask task = entity.getScheduler().runAtFixedRate(this.coldPlugin, t -> runnable.run(), retired, fix(delay), fix(period));
+        if (task == null && retired != null)
+            this.runTask(retired);
+        return wrap(task);
     }
 
     @Override
@@ -133,7 +148,7 @@ public class FoliaSchedulerWrapper implements SchedulerWrapper {
 
     @Override
     public ScheduledTask runTaskTimerAtEntity(Entity entity, Runnable runnable, long delay, long period, TimeUnit timeUnit) {
-        return wrap(entity.getScheduler().runAtFixedRate(this.coldPlugin, task -> runnable.run(), null, fix(ColdDevUtils.timeUnitToTicks(delay, timeUnit)), fix(ColdDevUtils.timeUnitToTicks(period, timeUnit))));
+        return wrap(entity.getScheduler().runAtFixedRate(this.coldPlugin, task -> runnable.run(), null, fix(toTicks(delay, timeUnit)), fix(toTicks(period, timeUnit))));
     }
 
     @Override
@@ -152,6 +167,11 @@ public class FoliaSchedulerWrapper implements SchedulerWrapper {
 
     private static long ticksToMillis(long ticks) {
         return ticks * 50L;
+    }
+
+    // Kept local so the scheduler package does not depend on the rest of ColdDev
+    private static long toTicks(long value, TimeUnit timeUnit) {
+        return Math.round(timeUnit.toMillis(value) / 50.0);
     }
 
 }

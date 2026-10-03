@@ -81,6 +81,20 @@ public interface SchedulerWrapper {
     ScheduledTask runTaskTimerAtEntity(Entity entity, Runnable runnable, long delay, long period);
     ScheduledTask runTaskTimerAtEntity(Entity entity, Runnable runnable, long delay, long period, TimeUnit timeUnit);
 
+    /**
+     * Same as {@link #runTaskAtEntity(Entity, Runnable)}, but runs {@code retired} if the entity is removed
+     * before the task could run (Folia drops entity tasks silently when the entity leaves, e.g. a player quits).
+     * On Bukkit/Paper the task always runs, so {@code retired} is never called.
+     */
+    ScheduledTask runTaskAtEntity(Entity entity, Runnable runnable, Runnable retired);
+
+    /**
+     * Same as {@link #runTaskTimerAtEntity(Entity, Runnable, long, long)}, but runs {@code retired} once if the
+     * entity is removed while the timer is still active (Folia stops entity tasks silently in that case).
+     * On Bukkit/Paper the timer keeps running, so {@code retired} is never called.
+     */
+    ScheduledTask runTaskTimerAtEntity(Entity entity, Runnable runnable, Runnable retired, long delay, long period);
+
     //#endregion
 
     void cancelAllTasks();

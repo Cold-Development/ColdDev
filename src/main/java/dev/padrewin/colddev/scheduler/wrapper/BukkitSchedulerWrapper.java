@@ -1,9 +1,8 @@
 package dev.padrewin.colddev.scheduler.wrapper;
 
-import dev.padrewin.colddev.ColdPlugin;
+import org.bukkit.plugin.Plugin;
 import dev.padrewin.colddev.scheduler.task.BukkitScheduledTask;
 import dev.padrewin.colddev.scheduler.task.ScheduledTask;
-import dev.padrewin.colddev.utils.ColdDevUtils;
 import java.util.concurrent.TimeUnit;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
@@ -13,10 +12,10 @@ import org.bukkit.scheduler.BukkitTask;
 
 public class BukkitSchedulerWrapper implements SchedulerWrapper {
 
-    private final ColdPlugin coldPlugin;
+    private final Plugin coldPlugin;
     private final BukkitScheduler scheduler;
 
-    public BukkitSchedulerWrapper(ColdPlugin coldPlugin) {
+    public BukkitSchedulerWrapper(Plugin coldPlugin) {
         this.coldPlugin = coldPlugin;
         this.scheduler = Bukkit.getScheduler();
     }
@@ -48,7 +47,7 @@ public class BukkitSchedulerWrapper implements SchedulerWrapper {
 
     @Override
     public ScheduledTask runTaskLater(Runnable runnable, long delay, TimeUnit timeUnit) {
-        return wrap(this.scheduler.runTaskLater(this.coldPlugin, runnable, ColdDevUtils.timeUnitToTicks(delay, timeUnit)));
+        return wrap(this.scheduler.runTaskLater(this.coldPlugin, runnable, toTicks(delay, timeUnit)));
     }
 
     @Override
@@ -58,7 +57,7 @@ public class BukkitSchedulerWrapper implements SchedulerWrapper {
 
     @Override
     public ScheduledTask runTaskLaterAsync(Runnable runnable, long delay, TimeUnit timeUnit) {
-        return wrap(this.scheduler.runTaskLaterAsynchronously(this.coldPlugin, runnable, ColdDevUtils.timeUnitToTicks(delay, timeUnit)));
+        return wrap(this.scheduler.runTaskLaterAsynchronously(this.coldPlugin, runnable, toTicks(delay, timeUnit)));
     }
 
     @Override
@@ -68,7 +67,7 @@ public class BukkitSchedulerWrapper implements SchedulerWrapper {
 
     @Override
     public ScheduledTask runTaskTimer(Runnable runnable, long delay, long period, TimeUnit timeUnit) {
-        return wrapRepeating(this.scheduler.runTaskTimer(this.coldPlugin, runnable, ColdDevUtils.timeUnitToTicks(delay, timeUnit), ColdDevUtils.timeUnitToTicks(period, timeUnit)));
+        return wrapRepeating(this.scheduler.runTaskTimer(this.coldPlugin, runnable, toTicks(delay, timeUnit), toTicks(period, timeUnit)));
     }
 
     @Override
@@ -78,7 +77,7 @@ public class BukkitSchedulerWrapper implements SchedulerWrapper {
 
     @Override
     public ScheduledTask runTaskTimerAsync(Runnable runnable, long delay, long period, TimeUnit timeUnit) {
-        return wrapRepeating(this.scheduler.runTaskTimerAsynchronously(this.coldPlugin, runnable, ColdDevUtils.timeUnitToTicks(delay, timeUnit), ColdDevUtils.timeUnitToTicks(period, timeUnit)));
+        return wrapRepeating(this.scheduler.runTaskTimerAsynchronously(this.coldPlugin, runnable, toTicks(delay, timeUnit), toTicks(period, timeUnit)));
     }
 
     @Override
@@ -122,6 +121,16 @@ public class BukkitSchedulerWrapper implements SchedulerWrapper {
     }
 
     @Override
+    public ScheduledTask runTaskAtEntity(Entity entity, Runnable runnable, Runnable retired) {
+        return this.runTaskAtEntity(entity, runnable);
+    }
+
+    @Override
+    public ScheduledTask runTaskTimerAtEntity(Entity entity, Runnable runnable, Runnable retired, long delay, long period) {
+        return this.runTaskTimerAtEntity(entity, runnable, delay, period);
+    }
+
+    @Override
     public ScheduledTask runTaskTimerAtEntity(Entity entity, Runnable runnable, long delay, long period) {
         return this.runTaskTimer(runnable, delay, period);
     }
@@ -142,6 +151,11 @@ public class BukkitSchedulerWrapper implements SchedulerWrapper {
 
     private static ScheduledTask wrapRepeating(BukkitTask task) {
         return new BukkitScheduledTask(task, true);
+    }
+
+    // Kept local so the scheduler package does not depend on the rest of ColdDev
+    private static long toTicks(long value, TimeUnit timeUnit) {
+        return Math.round(timeUnit.toMillis(value) / 50.0);
     }
 
 }

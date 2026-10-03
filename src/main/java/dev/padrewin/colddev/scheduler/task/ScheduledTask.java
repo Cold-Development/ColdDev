@@ -1,6 +1,6 @@
 package dev.padrewin.colddev.scheduler.task;
 
-import dev.padrewin.colddev.ColdPlugin;
+import org.bukkit.plugin.Plugin;
 
 public interface ScheduledTask {
 
@@ -17,7 +17,7 @@ public interface ScheduledTask {
     /**
      * @return the plugin that scheduled this task
      */
-    ColdPlugin getOwningPlugin();
+    Plugin getOwningPlugin();
 
     /**
      * @return true if this task is running, false otherwise

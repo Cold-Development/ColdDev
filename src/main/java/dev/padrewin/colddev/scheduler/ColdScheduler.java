@@ -1,13 +1,15 @@
 package dev.padrewin.colddev.scheduler;
 
-import dev.padrewin.colddev.ColdPlugin;
+import org.bukkit.plugin.Plugin;
 import dev.padrewin.colddev.scheduler.task.ScheduledTask;
 import dev.padrewin.colddev.scheduler.wrapper.BukkitSchedulerWrapper;
 import dev.padrewin.colddev.scheduler.wrapper.FoliaSchedulerWrapper;
 import dev.padrewin.colddev.scheduler.wrapper.SchedulerWrapper;
 import dev.padrewin.colddev.utils.NMSUtil;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.entity.Entity;
 
@@ -18,7 +20,7 @@ public class ColdScheduler implements SchedulerWrapper {
     private final AtomicInteger runningTasks;
     private final SchedulerWrapper scheduler;
 
-    private ColdScheduler(ColdPlugin coldPlugin) {
+    private ColdScheduler(Plugin coldPlugin) {
         if (instance != null)
             throw new IllegalStateException("An instance of ColdScheduler already exists");
 
@@ -143,6 +145,16 @@ public class ColdScheduler implements SchedulerWrapper {
     }
 
     @Override
+    public ScheduledTask runTaskAtEntity(Entity entity, Runnable runnable, Runnable retired) {
+        return this.scheduler.runTaskAtEntity(entity, this.wrap(runnable), retired == null ? null : this.wrap(retired));
+    }
+
+    @Override
+    public ScheduledTask runTaskTimerAtEntity(Entity entity, Runnable runnable, Runnable retired, long delay, long period) {
+        return this.scheduler.runTaskTimerAtEntity(entity, this.wrap(runnable), retired == null ? null : this.wrap(retired), delay, period);
+    }
+
+    @Override
     public void cancelAllTasks() {
         this.scheduler.cancelAllTasks();
     }
@@ -162,7 +174,72 @@ public class ColdScheduler implements SchedulerWrapper {
         };
     }
 
-    public static ColdScheduler getInstance(ColdPlugin coldPlugin) {
+    /**
+     * Runs the task immediately if already on the main thread (Bukkit/Paper) or the global region thread (Folia),
+     * otherwise schedules it there. Use it for work that is not tied to a place, such as console commands.
+     *
+     * @param runnable The task to run
+     */
+    public void executeGlobal(Runnable runnable) {
+        boolean onGlobalThread = NMSUtil.isFolia() ? Bukkit.isGlobalTickThread() : Bukkit.isPrimaryThread();
+        if (onGlobalThread) {
+            runnable.run();
+        } else {
+            this.runTask(runnable);
+        }
+    }
+
+    /**
+     * Runs the task immediately if the current thread owns the entity, otherwise schedules it on the entity's thread.
+     * On Bukkit/Paper this runs inline when called from the main thread; on Folia it runs on the entity's region thread.
+     *
+     * @param entity The entity whose thread should run the task
+     * @param runnable The task to run
+     */
+    public void executeAtEntity(Entity entity, Runnable runnable) {
+        if (this.isEntityThread(entity)) {
+            runnable.run();
+        } else {
+            this.runTaskAtEntity(entity, runnable);
+        }
+    }
+
+    /**
+     * Runs the task immediately if the current thread owns the location, otherwise schedules it on the location's thread.
+     * On Bukkit/Paper this runs inline when called from the main thread; on Folia it runs on the location's region thread.
+     *
+     * @param location The location whose thread should run the task
+     * @param runnable The task to run
+     */
+    public void executeAtLocation(Location location, Runnable runnable) {
+        if (this.isLocationThread(location)) {
+            runnable.run();
+        } else {
+            this.runTaskAtLocation(location, runnable);
+        }
+    }
+
+    /**
+     * Teleports an entity in a way that works on both Folia and Bukkit/Paper.
+     * Uses Paper's async teleport when available (required on Folia), otherwise a regular teleport.
+     *
+     * @param entity The entity to teleport
+     * @param location The destination
+     * @return A future completed with whether the teleport succeeded
+     */
+    public CompletableFuture<Boolean> teleport(Entity entity, Location location) {
+        if (NMSUtil.hasAsyncTeleport())
+            return entity.teleportAsync(location);
+        return CompletableFuture.completedFuture(entity.teleport(location));
+    }
+
+    /**
+     * Gets the scheduler for the given plugin. Works for any plugin, not only {@link dev.padrewin.colddev.ColdPlugin}s.
+     *
+     * @param coldPlugin The plugin that owns the scheduled tasks
+     * @return The scheduler instance
+     */
+    public static ColdScheduler getInstance(Plugin coldPlugin) {
         if (instance == null)
             instance = new ColdScheduler(coldPlugin);
         return instance;

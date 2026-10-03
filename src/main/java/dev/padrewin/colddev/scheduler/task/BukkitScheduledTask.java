@@ -1,6 +1,6 @@
 package dev.padrewin.colddev.scheduler.task;
 
-import dev.padrewin.colddev.ColdPlugin;
+import org.bukkit.plugin.Plugin;
 import org.bukkit.Bukkit;
 import org.bukkit.scheduler.BukkitTask;
 
@@ -25,8 +25,8 @@ public class BukkitScheduledTask implements ScheduledTask {
     }
 
     @Override
-    public ColdPlugin getOwningPlugin() {
-        return (ColdPlugin) this.bukkitTask.getOwner();
+    public Plugin getOwningPlugin() {
+        return this.bukkitTask.getOwner();
     }
 
     @Override
