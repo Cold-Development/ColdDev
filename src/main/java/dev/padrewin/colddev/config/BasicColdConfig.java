@@ -1,6 +1,9 @@
 package dev.padrewin.colddev.config;
 
 import java.io.File;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -66,23 +69,49 @@ import java.util.Map;
         if (this.settings.isEmpty() && this.header.length == 0)
             return;
 
-        boolean appendHeader = !this.file.exists();
-        boolean changed = appendHeader;
-
+        boolean newFile = !this.file.exists();
         CommentedFileConfiguration config = this.getBaseConfig();
-        if (appendHeader)
+
+        if (newFile) {
             config.addComments(this.header);
-
-        for (ColdSetting<?> setting : this.settings) {
-            if (config.contains(setting.getKey()))
-                continue;
-
-            setting.writeDefault(config, this.writeDefaultValueComments);
-            changed = true;
+            for (ColdSetting<?> setting : this.settings)
+                setting.writeDefault(config, this.writeDefaultValueComments);
+            this.save();
+            return;
         }
 
-        if (changed)
+        boolean missing = this.settings.stream().anyMatch(setting -> !config.contains(setting.getKey()));
+        if (!missing)
+            return;
+
+        // An existing file gets the missing settings added line by line: re-saving it through
+        // CommentedFileConfiguration would lose the comments at the end of lines and reformat it
+        try {
+            ConfigUpdater.update(this.file, this.defaultLines());
+        } catch (IOException e) {
+            e.printStackTrace();
+            for (ColdSetting<?> setting : this.settings)
+                if (!config.contains(setting.getKey()))
+                    setting.writeDefault(config, this.writeDefaultValueComments);
             this.save();
+        }
+        this.fileConfiguration = null;
+    }
+
+    /**
+     * @return every setting with its default value and comments, as the lines of a YAML file
+     */
+    private List<String> defaultLines() throws IOException {
+        File defaults = File.createTempFile("colddev-config", ".yml");
+        try {
+            CommentedFileConfiguration config = CommentedFileConfiguration.loadConfiguration(defaults);
+            for (ColdSetting<?> setting : this.settings)
+                setting.writeDefault(config, this.writeDefaultValueComments);
+            config.save(defaults);
+            return Files.readAllLines(defaults.toPath(), StandardCharsets.UTF_8);
+        } finally {
+            defaults.delete();
+        }
     }
 
     @Override

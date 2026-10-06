@@ -65,11 +65,24 @@ public abstract class AbstractDataManager extends Manager {
         super(coldPlugin);
     }
 
+    /**
+     * Connects to the database and applies the migrations, then calls {@link #onDatabaseReady()}.
+     * <p>
+     * Note: {@link ColdPlugin} loads the data manager with {@link #reloadAsync(Runnable)}, both on
+     * startup and on reload, which doesn't go through this method. Put initialization code (caches,
+     * repeating tasks, ...) in {@link #onDatabaseReady()}, not in an override of this method.
+     */
     @Override
     public void reload() {
-        this.reloadDatabase();
+        if (this.reloadDatabase()) {
+            this.callDatabaseReady();
+        }
     }
 
+    /**
+     * Connects to the database off the main thread, then calls {@link #onDatabaseReady()} on the main
+     * thread, then the completion callback.
+     */
     public final void reloadAsync(Runnable completionCallback) {
         if (!this.reloadInProgress.compareAndSet(false, true)) {
             return;
@@ -83,19 +96,45 @@ public abstract class AbstractDataManager extends Manager {
                 this.reloadInProgress.set(false);
             }
 
-            if (loaded && completionCallback != null) {
-                completionCallback.run();
+            if (loaded) {
+                this.coldPlugin.getScheduler().runTask(() -> {
+                    this.callDatabaseReady();
+                    if (completionCallback != null) {
+                        completionCallback.run();
+                    }
+                });
             }
         });
     }
 
-    private void reloadDatabase() {
+    /**
+     * Called on the main thread every time the database has been connected and migrated: on startup
+     * and after every plugin reload (after {@link #disable()} closed the previous connection). Start
+     * caches and repeating tasks here, and stop them in {@link #disable()}.
+     */
+    protected void onDatabaseReady() {
+        // Provides no default behavior
+    }
+
+    private void callDatabaseReady() {
+        try {
+            this.onDatabaseReady();
+        } catch (Exception e) {
+            this.coldPlugin.getLogger().severe("Error while setting up the data manager after connecting to the database");
+            e.printStackTrace();
+        }
+    }
+
+    /**
+     * @return true if the database was connected
+     */
+    private boolean reloadDatabase() {
         if (!this.reloadInProgress.compareAndSet(false, true)) {
-            return;
+            return false;
         }
 
         try {
-            this.reloadDatabaseInternal();
+            return this.reloadDatabaseInternal();
         } finally {
             this.reloadInProgress.set(false);
         }

@@ -238,15 +238,19 @@ public final class HexUtils {
 
     /**
      * Returns the index before the color changes
+     * <p>
+     * A color right where the gradient/rainbow text starts counts too: the gradient then covers
+     * nothing and that color is used. Skipping it made the gradient color the code itself letter by
+     * letter (e.g. {@code <g:#FFFFFF:#000000>&a$5} showed "&a" in the text).
      *
      * @param content     The content to search through
-     * @param searchAfter The index at which to search after
+     * @param searchAfter The index where the gradient/rainbow text starts
      * @return the index of the color stop, or the end of the string index if none is found
      */
     private static int findStop(String content, int searchAfter) {
         Matcher matcher = STOP.matcher(content);
         while (matcher.find()) {
-            if (matcher.start() > searchAfter)
+            if (matcher.start() >= searchAfter)
                 return matcher.start();
         }
         return content.length();

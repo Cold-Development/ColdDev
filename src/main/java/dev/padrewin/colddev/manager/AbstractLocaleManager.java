@@ -3,6 +3,7 @@ package dev.padrewin.colddev.manager;
 import dev.padrewin.colddev.ColdPlugin;
 import dev.padrewin.colddev.command.framework.CommandMessages;
 import dev.padrewin.colddev.config.CommentedFileConfiguration;
+import dev.padrewin.colddev.config.ConfigUpdater;
 import dev.padrewin.colddev.config.ColdSetting;
 import dev.padrewin.colddev.config.ColdSettingSerializers;
 import dev.padrewin.colddev.hook.PlaceholderAPIHook;
@@ -13,6 +14,8 @@ import dev.padrewin.colddev.utils.HexUtils;
 import dev.padrewin.colddev.utils.StringPlaceholders;
 import java.io.File;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -21,6 +24,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import org.bukkit.command.CommandSender;
+import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.Player;
 import org.jetbrains.annotations.NotNull;
 
@@ -137,25 +141,54 @@ public abstract class AbstractLocaleManager extends Manager {
             }
         }
 
-        boolean changed = false;
         CommentedFileConfiguration configuration = CommentedFileConfiguration.loadConfiguration(file);
         Map<String, Object> defaultLocaleStrings = locale.getLocaleValues();
 
-        // Write new locale values that are missing
-        // If the file is new, also write the comments
-        for (String key : defaultLocaleStrings.keySet()) {
-            Object value = defaultLocaleStrings.get(key);
-            if (newFile && key.startsWith(CommentedFileConfiguration.COMMENT_KEY_PREFIX)) {
-                configuration.addComments(((String) value).substring(1));
-                changed = true;
-            } else if (!configuration.contains(key)) {
-                configuration.set(key, value);
-                changed = true;
-            }
+        if (newFile) {
+            writeLocaleValues(configuration, defaultLocaleStrings);
+            configuration.save(file);
+            return;
         }
 
-        if (changed)
+        boolean missing = defaultLocaleStrings.keySet().stream()
+                .anyMatch(key -> !key.contains(CommentedFileConfiguration.COMMENT_KEY_PREFIX) && !configuration.contains(key));
+        if (!missing)
+            return;
+
+        // Add the missing messages line by line: re-saving the file through CommentedFileConfiguration
+        // would lose the comments at the end of lines and reformat the owner's messages
+        try {
+            File defaults = File.createTempFile("colddev-locale", ".yml");
+            try {
+                CommentedFileConfiguration defaultConfiguration = CommentedFileConfiguration.loadConfiguration(defaults);
+                writeLocaleValues(defaultConfiguration, defaultLocaleStrings);
+                defaultConfiguration.save(defaults);
+                ConfigUpdater.update(file, Files.readAllLines(defaults.toPath(), StandardCharsets.UTF_8));
+            } finally {
+                defaults.delete();
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+            for (Map.Entry<String, Object> entry : defaultLocaleStrings.entrySet())
+                if (!entry.getKey().contains(CommentedFileConfiguration.COMMENT_KEY_PREFIX) && !configuration.contains(entry.getKey()))
+                    configuration.set(entry.getKey(), entry.getValue());
             configuration.save(file);
+        }
+    }
+
+    /**
+     * Writes every value of a locale, with its comments, in order.
+     */
+    private static void writeLocaleValues(CommentedFileConfiguration configuration, Map<String, Object> values) {
+        for (Map.Entry<String, Object> entry : values.entrySet()) {
+            String key = entry.getKey();
+            Object value = entry.getValue();
+            if (key.startsWith(CommentedFileConfiguration.COMMENT_KEY_PREFIX)) {
+                configuration.addComments(((String) value).substring(1));
+            } else if (!key.contains(CommentedFileConfiguration.COMMENT_KEY_PREFIX) && !(value instanceof ConfigurationSection)) {
+                configuration.set(key, value);
+            }
+        }
     }
 
     @Override
@@ -228,7 +261,8 @@ public abstract class AbstractLocaleManager extends Manager {
     }
 
     /**
-     * Gets a locale message with the given placeholders applied, falling back to the default command messages if none found
+     * Gets a locale message with the given placeholders applied, falling back to the default locale
+     * (en_US), then to the default command messages if none found
      *
      * @param messageKey The key of the message to get
      * @param stringPlaceholders The placeholders to apply
@@ -236,7 +270,9 @@ public abstract class AbstractLocaleManager extends Manager {
      */
     public String getCommandLocaleMessage(String messageKey, StringPlaceholders stringPlaceholders) {
         String message;
-        if (this.loadedLocale.getLocaleValues().containsKey(messageKey)) {
+        if (this.loadedLocale.getLocaleValues().get(messageKey) instanceof String
+                || this.defaultLocale.getLocaleValues().get(messageKey) instanceof String) {
+            // getLocaleMessage falls back to the default locale on its own
             message = this.getLocaleMessage(messageKey, stringPlaceholders);
         } else {
             message = CommandMessages.DEFAULT_MESSAGES.get(messageKey);

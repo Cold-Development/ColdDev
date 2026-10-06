@@ -67,7 +67,7 @@ public class ColdCommandWrapper extends BukkitCommand {
                 // Different comments for the main command
                 commandConfig.addComments(
                         "This file lets you change the name, aliases, and set the priority for the main command.",
-                        "If you edit the name/aliases at the top of this file, you can reload the plugin with /bits reload to apply the changes.",
+                        "If you edit the name/aliases at the top of this file, you can reload the plugin with /" + commandName + " reload to apply the changes.",
                         "The main command cannot be disabled to ensure the reload functionality always works.",
                         "You can disable individual subcommands below.",
                         "Enabling the priority setting will make this command take priority over commands from other plugins on the server.");
@@ -75,7 +75,7 @@ public class ColdCommandWrapper extends BukkitCommand {
                 // Regular comments for other commands
                 commandConfig.addComments(
                         "This file lets you disable the command, change the name and aliases, and set the priority.",
-                        "If you edit the name/aliases at the top of this file, you can reload the plugin with /bits reload to apply the changes.",
+                        "If you edit the name/aliases at the top of this file, reload " + this.coldPlugin.getName() + " (its reload command) to apply the changes.",
                         "Disabling a command only requires a plugin reload, not a full server restart.",
                         "Enabling the priority setting will make this command take priority over commands from other plugins on the server.");
             }
