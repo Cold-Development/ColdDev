@@ -164,7 +164,12 @@ public class PluginUpdateManager extends Manager implements Listener {
     }
 
     /**
-     * Called when a player joins and notifies ops if an update is available
+     * Called when a player joins and notifies them if an update is available, when they have
+     * {@code <plugin>.updates} (this plugin) or {@code colddev.updates} (every ColdDev plugin).
+     * <p>
+     * A permission rather than isOp(): servers give staff everything with LuckPerms ({@code *})
+     * instead of /op, and that grants these too. Undeclared permissions default to OPs, so OPs
+     * still get the message without any setup.
      *
      * @param event The join event
      */
@@ -176,7 +181,8 @@ public class PluginUpdateManager extends Manager implements Listener {
             return;
         }
 
-        if (!player.isOp()) {
+        if (!player.hasPermission(this.coldPlugin.getName().toLowerCase() + ".updates")
+                && !player.hasPermission("colddev.updates")) {
             return;
         }
 
