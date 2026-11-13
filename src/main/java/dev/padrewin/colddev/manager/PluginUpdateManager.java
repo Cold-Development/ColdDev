@@ -2,14 +2,20 @@ package dev.padrewin.colddev.manager;
 
 import dev.padrewin.colddev.ColdPlugin;
 import dev.padrewin.colddev.config.CommentedFileConfiguration;
+import dev.padrewin.colddev.scheduler.task.ScheduledTask;
 import dev.padrewin.colddev.utils.ColdDevUtils;
+import dev.padrewin.colddev.utils.HexUtils;
 import dev.padrewin.colddev.utils.StringPlaceholders;
-import java.io.BufferedReader;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
-import java.io.InputStreamReader;
+import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.nio.charset.StandardCharsets;
+import java.util.Collections;
+import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.event.ClickEvent;
@@ -17,14 +23,20 @@ import net.kyori.adventure.text.event.HoverEvent;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
 import org.bukkit.Bukkit;
+import org.bukkit.ChatColor;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerJoinEvent;
 
-import java.util.HashMap;
-import java.util.Map;
-
+/**
+ * Checks the plugin's latest GitHub release and tells the console and staff when it's newer than the
+ * running version, with the release's message for server owners when it has one (see {@link UpdateNotice}).
+ * <p>
+ * The check runs when the server starts and then every {@code check-updates-interval-hours} (ColdDev's
+ * config.yml), so a message added to a release later still reaches running servers. Reloading the plugin
+ * doesn't check again before the interval has passed.
+ */
 public class PluginUpdateManager extends Manager implements Listener {
 
     private static final String ANSI_RESET = "\u001B[0m";
@@ -40,9 +52,18 @@ public class PluginUpdateManager extends Manager implements Listener {
             "================================================"
     };
 
-    private static final Map<String, Boolean> updateMessageShownMap = new HashMap<>();
+    private static final long DEFAULT_INTERVAL_HOURS = 6;
+    private static final int TIMEOUT_MILLIS = 10_000;
+    private static final int MAX_RESPONSE_BYTES = 1024 * 1024;
 
-    private String updateVersion;
+    private volatile String updateVersion;
+    private volatile List<String> updateMessage = Collections.emptyList();
+
+    // Kept across reloads: the manager instance survives them (disable + reload)
+    private volatile long lastCheckMillis;
+    private volatile String announced;
+    private boolean snapshotWarned;
+    private ScheduledTask checkTask;
 
     public PluginUpdateManager(ColdPlugin coldPlugin) {
         super(coldPlugin);
@@ -51,52 +72,85 @@ public class PluginUpdateManager extends Manager implements Listener {
 
     @Override
     public void reload() {
-        if (this.coldPlugin.getGithubOwner() == null || this.coldPlugin.getGithubRepo() == null || this.updateVersion != null)
+        if (this.coldPlugin.getGithubOwner() == null || this.coldPlugin.getGithubRepo() == null)
             return;
-
-        File configFile = new File(this.coldPlugin.getColdDevDataFolder(), "config.yml");
 
         String currentVersion = this.coldPlugin.getDescription().getVersion();
-        if (currentVersion.contains("-SNAPSHOT") && !hasShownUpdateMessage()) {
-            for (String line : SNAPSHOT_HEADER) {
-                this.coldPlugin.getLogger().warning(line);
+        if (currentVersion.contains("-SNAPSHOT")) {
+            if (!this.snapshotWarned) {
+                for (String line : SNAPSHOT_HEADER) {
+                    this.coldPlugin.getLogger().warning(line);
+                }
+                this.snapshotWarned = true;
             }
-            setUpdateMessageShown();
             return;
         }
 
-        boolean firstLoad = false;
+        File configFile = new File(this.coldPlugin.getColdDevDataFolder(), "config.yml");
         CommentedFileConfiguration configuration = CommentedFileConfiguration.loadConfiguration(configFile);
+        boolean firstLoad = false;
+        boolean changed = false;
         if (!configuration.contains("check-updates")) {
             configuration.set("check-updates", true, "Should all plugins running ColdDev check for updates?", "ColdDev is a core library created by Cold Development");
-            configuration.save(configFile);
             firstLoad = true;
+            changed = true;
         }
+        if (!configuration.contains("check-updates-interval-hours")) {
+            configuration.set("check-updates-interval-hours", DEFAULT_INTERVAL_HOURS,
+                    "How often running servers check again for an update, in hours.",
+                    "0 only checks when the server starts.");
+            changed = true;
+        }
+        if (changed)
+            configuration.save(configFile);
 
         if (firstLoad || !configuration.getBoolean("check-updates"))
             return;
 
-        // Check for updates
-        this.coldPlugin.getScheduler().runTaskAsync(() -> this.checkForUpdate(currentVersion));
+        long intervalHours = Math.max(0, configuration.getLong("check-updates-interval-hours", DEFAULT_INTERVAL_HOURS));
+        long intervalMillis = TimeUnit.HOURS.toMillis(intervalHours);
+        long sinceLastCheck = System.currentTimeMillis() - this.lastCheckMillis;
+
+        if (intervalHours == 0) {
+            if (this.lastCheckMillis == 0)
+                this.checkTask = this.coldPlugin.getScheduler().runTaskAsync(() -> this.checkForUpdate(currentVersion));
+            return;
+        }
+
+        // After a reload, carry on where the previous schedule was instead of checking right away
+        long firstDelay = this.lastCheckMillis == 0 ? 0 : Math.max(0, intervalMillis - sinceLastCheck);
+        this.checkTask = this.coldPlugin.getScheduler().runTaskTimerAsync(() -> this.checkForUpdate(currentVersion),
+                TimeUnit.MILLISECONDS.toSeconds(firstDelay), TimeUnit.MILLISECONDS.toSeconds(intervalMillis), TimeUnit.SECONDS);
     }
 
     private void checkForUpdate(String currentVersion) {
+        this.lastCheckMillis = System.currentTimeMillis();
         try {
-            String latestVersion = this.getLatestVersion();
+            UpdateNotice.Release release = this.fetchLatestRelease();
+            if (release.tag() == null)
+                throw new IOException("Could not parse version from GitHub API response");
 
-            if (ColdDevUtils.isUpdateAvailable(latestVersion, currentVersion)) {
-                this.updateVersion = latestVersion;
+            if (!ColdDevUtils.isUpdateAvailable(release.tag(), currentVersion)) {
+                this.updateVersion = null;
+                this.updateMessage = Collections.emptyList();
+                return;
+            }
 
-                if (hasShownUpdateMessage()) {
-                    return;
-                }
+            List<String> message = release.message();
+            this.updateMessage = message;
+            this.updateVersion = release.tag();
 
-                String message = ANSI_RED + "An update for " + ANSI_PURPLE_CHINESE + this.coldPlugin.getName() + ANSI_RED + ANSI_BOLD
-                        + " (" + this.updateVersion + ")" + ANSI_RESET + ANSI_RED + " is available! You are running "
-                        + ANSI_BOLD + ANSI_RED + "v" + currentVersion + "." + ANSI_RESET;
+            // The console hears about each version (and each change of its message) once
+            String key = release.tag() + '\n' + String.join("\n", message);
+            if (key.equals(this.announced))
+                return;
+            this.announced = key;
 
-                ColdDevUtils.getLogger().info(message);
-                setUpdateMessageShown();
+            ColdDevUtils.getLogger().info(ANSI_RED + "An update for " + ANSI_PURPLE_CHINESE + this.coldPlugin.getName() + ANSI_RED + ANSI_BOLD
+                    + " (" + release.tag() + ")" + ANSI_RESET + ANSI_RED + " is available! You are running "
+                    + ANSI_BOLD + ANSI_RED + "v" + currentVersion + "." + ANSI_RESET);
+            for (String line : message) {
+                ColdDevUtils.getLogger().info("  " + ChatColor.stripColor(HexUtils.colorify(line)));
             }
         } catch (Exception e) {
             ColdDevUtils.getLogger().warning("An error occurred checking for an update. There is either no established internet connection or the GitHub API is down.");
@@ -105,54 +159,44 @@ public class PluginUpdateManager extends Manager implements Listener {
 
     @Override
     public void disable() {
-
-        updateMessageShownMap.clear();
-    }
-
-    private boolean hasShownUpdateMessage() {
-        return updateMessageShownMap.getOrDefault(this.coldPlugin.getName(), false);
-    }
-
-    private void setUpdateMessageShown() {
-        updateMessageShownMap.put(this.coldPlugin.getName(), true);
+        if (this.checkTask != null) {
+            this.checkTask.cancel();
+            this.checkTask = null;
+        }
     }
 
     /**
-     * Gets the latest version of the plugin from the GitHub API
+     * Gets the latest release of the plugin from the GitHub API
      *
-     * @return the latest version of the plugin from GitHub
+     * @return its tag and notes
      * @throws IOException if a network error occurs
      */
-    private String getLatestVersion() throws IOException {
+    private UpdateNotice.Release fetchLatestRelease() throws IOException {
         String owner = this.coldPlugin.getGithubOwner();
         String repo = this.coldPlugin.getGithubRepo();
         URL github = new URL("https://api.github.com/repos/" + owner + "/" + repo + "/releases/latest");
 
         HttpURLConnection connection = (HttpURLConnection) github.openConnection();
-        connection.setRequestMethod("GET");
+        try {
+            connection.setRequestMethod("GET");
+            connection.setConnectTimeout(TIMEOUT_MILLIS);
+            connection.setReadTimeout(TIMEOUT_MILLIS);
+            connection.setRequestProperty("Accept", "application/vnd.github+json");
+            connection.setRequestProperty("User-Agent", "ColdDev-UpdateChecker");
 
-        int responseCode = connection.getResponseCode();
-        if (responseCode == HttpURLConnection.HTTP_OK) {
-            StringBuilder response = new StringBuilder();
-            try (BufferedReader reader = new BufferedReader(new InputStreamReader(connection.getInputStream()))) {
-                String line;
-                while ((line = reader.readLine()) != null) {
-                    response.append(line);
-                }
+            int responseCode = connection.getResponseCode();
+            if (responseCode != HttpURLConnection.HTTP_OK)
+                throw new IOException("Failed to fetch latest version. Response code: " + responseCode);
+
+            try (InputStream input = connection.getInputStream()) {
+                // Release notes can be long, but never this long: don't let a bad response fill the memory
+                byte[] body = input.readNBytes(MAX_RESPONSE_BYTES + 1);
+                if (body.length > MAX_RESPONSE_BYTES)
+                    throw new IOException("The GitHub API response is too large");
+                return UpdateNotice.parseRelease(new String(body, StandardCharsets.UTF_8));
             }
-
-            String jsonResponse = response.toString();
-            String tag = "\"tag_name\":\"";
-            int start = jsonResponse.indexOf(tag) + tag.length();
-            int end = jsonResponse.indexOf("\"", start);
-
-            if (start != -1 && end != -1) {
-                return jsonResponse.substring(start, end);
-            } else {
-                throw new IOException("Could not parse version from GitHub API response");
-            }
-        } else {
-            throw new IOException("Failed to fetch latest version. Response code: " + responseCode);
+        } finally {
+            connection.disconnect();
         }
     }
 
@@ -161,6 +205,14 @@ public class PluginUpdateManager extends Manager implements Listener {
      */
     public String getUpdateVersion() {
         return this.updateVersion;
+    }
+
+    /**
+     * @return the message for server owners of the latest update (colour codes not applied yet);
+     * empty if there is no update or it has no message
+     */
+    public List<String> getUpdateMessage() {
+        return this.updateMessage;
     }
 
     /**
@@ -187,20 +239,28 @@ public class PluginUpdateManager extends Manager implements Listener {
         }
 
         this.coldPlugin.getScheduler().runTaskAtEntityLater(player, () -> {
+            String version = this.updateVersion;
+            if (version == null || !player.isOnline()) {
+                return;
+            }
+
             String website = coldPlugin.getDescription().getWebsite();
             String updateMessage = "&cAn update for " + ColdDevUtils.GRADIENT +
                     coldPlugin.getName() + " &c(&4%new%&c) is available! You are running &4v%current%&c.";
 
-            StringPlaceholders placeholders = StringPlaceholders.of("new", updateVersion, "current", coldPlugin.getDescription().getVersion());
+            StringPlaceholders placeholders = StringPlaceholders.of("new", version, "current", coldPlugin.getDescription().getVersion());
 
             ColdDevUtils.sendMessage(player, updateMessage, placeholders);
+            for (String line : this.updateMessage) {
+                player.sendMessage(HexUtils.colorify("&7" + line));
+            }
 
             if (website != null) {
                 Component clickHereComponent = Component.text("Click here to update")
                         .color(NamedTextColor.GREEN)
                         .decorate(TextDecoration.UNDERLINED)
                         .clickEvent(ClickEvent.openUrl(website))
-                        .hoverEvent(HoverEvent.showText(Component.text("Click to open GitHub.")));
+                        .hoverEvent(HoverEvent.showText(Component.text("Click to open the plugin page.")));
 
                 player.sendMessage(clickHereComponent);
                 player.sendMessage(Component.empty());
