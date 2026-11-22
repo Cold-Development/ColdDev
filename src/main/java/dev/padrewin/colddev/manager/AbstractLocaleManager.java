@@ -184,7 +184,9 @@ public abstract class AbstractLocaleManager extends Manager {
             String key = entry.getKey();
             Object value = entry.getValue();
             if (key.startsWith(CommentedFileConfiguration.COMMENT_KEY_PREFIX)) {
-                configuration.addComments(((String) value).substring(1));
+                // The parser removes '#', but comments need not contain a leading space.
+                String comment = (String) value;
+                configuration.addComments(comment.startsWith(" ") ? comment.substring(1) : comment);
             } else if (!key.contains(CommentedFileConfiguration.COMMENT_KEY_PREFIX) && !(value instanceof ConfigurationSection)) {
                 configuration.set(key, value);
             }
